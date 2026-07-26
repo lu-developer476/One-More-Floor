@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { TimedHazardDefinition } from '../types/game';
+import { timedCycleState } from '../systems/TimedCycle';
 
 export class LaserGate {
   readonly hitbox: Phaser.GameObjects.Zone;
@@ -66,11 +67,10 @@ export class LaserGate {
   }
 
   update(time: number): void {
-    const cycle = this.definition.activeMs + this.definition.inactiveMs;
-    const phase = (time + (this.definition.phaseMs ?? 0)) % cycle;
-    const nextActive = phase < this.definition.activeMs;
-    const warningWindow = this.definition.warningMs;
-    const warning = !nextActive && cycle - phase <= warningWindow;
+    const state = timedCycleState(time, this.definition.activeMs, this.definition.inactiveMs,
+      this.definition.warningMs, this.definition.phaseMs);
+    const nextActive = state === 'active';
+    const warning = state === 'warning';
 
     if (nextActive !== this.active) {
       this.active = nextActive;

@@ -71,7 +71,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const now = this.scene.time.now;
     const body = this.body as Phaser.Physics.Arcade.Body;
     const pad = this.scene.input.gamepad?.getPad(0);
-    const axis = pad && Math.abs(pad.leftStick.x) > 0.2 ? pad.leftStick.x : 0;
+    const axis = pad && Math.abs(pad.leftStick.x) > MOVEMENT.gamepadDeadZone ? pad.leftStick.x : 0;
 
     const keyboardDirection =
       (this.controls.left.isDown || this.controls.arrowLeft.isDown ? -1 : 0) +
@@ -97,6 +97,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       Phaser.Input.Keyboard.JustDown(this.controls.dash) ||
       (gamepadDashDown && !this.gamepadDashWasDown);
 
+    const jumpReleased =
+      Phaser.Input.Keyboard.JustUp(this.controls.jump) ||
+      Phaser.Input.Keyboard.JustUp(this.controls.up) ||
+      Phaser.Input.Keyboard.JustUp(this.controls.w) ||
+      (!gamepadJumpDown && this.gamepadJumpWasDown);
     this.gamepadJumpWasDown = gamepadJumpDown;
     this.gamepadDashWasDown = gamepadDashDown;
 
@@ -113,6 +118,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     if (now < this.dashEndsAt) {
+      body.maxVelocity.x = MOVEMENT.dashSpeed;
       this.setVelocityY(0);
       this.setAcceleration(0);
       this.setTint(0x5ef1ff);
@@ -120,6 +126,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
+    body.maxVelocity.x = MOVEMENT.maxSpeed;
     this.clearTint();
     this.setGravityY(0);
 
@@ -144,7 +151,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.lastGroundedAt = -Infinity;
     }
 
-    if (!jumpDown && body.velocity.y < -170) {
+    if (jumpReleased && !jumpDown && body.velocity.y < -170) {
       this.setVelocityY(body.velocity.y * MOVEMENT.jumpCutMultiplier);
     }
 
