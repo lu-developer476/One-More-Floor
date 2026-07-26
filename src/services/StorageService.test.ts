@@ -1,10 +1,70 @@
 import { describe, expect, it } from 'vitest';
 import { StorageService } from './StorageService';
-class MemoryStorage { values = new Map<string, string>(); getItem(key: string) { return this.values.get(key) ?? null; } setItem(key: string, value: string) { this.values.set(key, value); } }
+class MemoryStorage {
+  values = new Map<string, string>();
+  getItem(key: string) {
+    return this.values.get(key) ?? null;
+  }
+  setItem(key: string, value: string) {
+    this.values.set(key, value);
+  }
+}
 describe('StorageService', () => {
-  it('returns defaults for empty and invalid JSON', () => { const store = new MemoryStorage(); expect(new StorageService(store).load().unlockedFloor).toBe(1); store.values.set('one-more-floor.save.v3', '{'); expect(new StorageService(store).load().version).toBe(3); });
-  it('clamps and rejects corrupt fields without losing valid settings', () => { const store = new MemoryStorage(); store.values.set('one-more-floor.save.v3', JSON.stringify({ unlockedFloor: 99, settings: { volume: -2, mute: true, highContrast: true }, floors: { '1': { completed: true, bestTimeMs: -5, fewestDeaths: -1, rank: 'Z' }, '9': {} } })); const data = new StorageService(store).load(); expect(data.unlockedFloor).toBe(1); expect(data.settings).toMatchObject({ volume: 0.7, mute: true, highContrast: true }); expect(data.floors['1']).toMatchObject({ bestTimeMs: null, fewestDeaths: null, rank: null }); expect(data.floors['9']).toBeUndefined(); });
-  it('migrates v2 including missing accessibility fields', () => { const store = new MemoryStorage(); store.values.set('one-more-floor.save.v2', JSON.stringify({ version: 2, unlockedFloor: 2, floors: { '1': { completed: true, bestTimeMs: 1200, fewestDeaths: 1, rank: 'A' } }, settings: { volume: 0.4, mute: true } })); const data = new StorageService(store).load(); expect(data.version).toBe(3); expect(data.unlockedFloor).toBe(2); expect(data.settings.reduceFlashes).toBe(false); expect(data.floors['1']?.rank).toBe('A'); });
-  it('migrates the v1 flat record', () => { const store = new MemoryStorage(); store.values.set('one-more-floor.save.v1', JSON.stringify({ bestTimeMs: 1200, fewestDeaths: 2, volume: 0.4, fullscreen: true })); const data = new StorageService(store).load(); expect(data.floors['1']?.completed).toBe(true); expect(data.settings.fullscreen).toBe(true); });
-  it('records each result once and preserves best values', () => { const store = new MemoryStorage(); const service = new StorageService(store); service.recordFloor(1, 2000, 3, 'B'); const data = service.recordFloor(1, 2500, 1, 'A'); expect(data.floors['1']).toMatchObject({ bestTimeMs: 2000, fewestDeaths: 1, rank: 'A' }); expect(data.unlockedFloor).toBe(2); });
+  it('returns defaults for empty and invalid JSON', () => {
+    const store = new MemoryStorage();
+    expect(new StorageService(store).load().unlockedFloor).toBe(1);
+    store.values.set('one-more-floor.save.v3', '{');
+    expect(new StorageService(store).load().version).toBe(3);
+  });
+  it('clamps and rejects corrupt fields without losing valid settings', () => {
+    const store = new MemoryStorage();
+    store.values.set(
+      'one-more-floor.save.v3',
+      JSON.stringify({
+        unlockedFloor: 99,
+        settings: { volume: -2, mute: true, highContrast: true },
+        floors: { '1': { completed: true, bestTimeMs: -5, fewestDeaths: -1, rank: 'Z' }, '9': {} },
+      }),
+    );
+    const data = new StorageService(store).load();
+    expect(data.unlockedFloor).toBe(1);
+    expect(data.settings).toMatchObject({ volume: 0.7, mute: true, highContrast: true });
+    expect(data.floors['1']).toMatchObject({ bestTimeMs: null, fewestDeaths: null, rank: null });
+    expect(data.floors['9']).toBeUndefined();
+  });
+  it('migrates v2 including missing accessibility fields', () => {
+    const store = new MemoryStorage();
+    store.values.set(
+      'one-more-floor.save.v2',
+      JSON.stringify({
+        version: 2,
+        unlockedFloor: 2,
+        floors: { '1': { completed: true, bestTimeMs: 1200, fewestDeaths: 1, rank: 'A' } },
+        settings: { volume: 0.4, mute: true },
+      }),
+    );
+    const data = new StorageService(store).load();
+    expect(data.version).toBe(3);
+    expect(data.unlockedFloor).toBe(2);
+    expect(data.settings.reduceFlashes).toBe(false);
+    expect(data.floors['1']?.rank).toBe('A');
+  });
+  it('migrates the v1 flat record', () => {
+    const store = new MemoryStorage();
+    store.values.set(
+      'one-more-floor.save.v1',
+      JSON.stringify({ bestTimeMs: 1200, fewestDeaths: 2, volume: 0.4, fullscreen: true }),
+    );
+    const data = new StorageService(store).load();
+    expect(data.floors['1']?.completed).toBe(true);
+    expect(data.settings.fullscreen).toBe(true);
+  });
+  it('records each result once and preserves best values', () => {
+    const store = new MemoryStorage();
+    const service = new StorageService(store);
+    service.recordFloor(1, 2000, 3, 'B');
+    const data = service.recordFloor(1, 2500, 1, 'A');
+    expect(data.floors['1']).toMatchObject({ bestTimeMs: 2000, fewestDeaths: 1, rank: 'A' });
+    expect(data.unlockedFloor).toBe(2);
+  });
 });

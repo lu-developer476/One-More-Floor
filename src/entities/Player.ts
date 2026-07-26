@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { MOVEMENT } from '../config/movementConfig';
 import { PlayerStateMachine } from '../states/PlayerStateMachine';
 import { PlayerState } from '../types/game';
+import { Events } from '../utils/EventBus';
+import { classifyLanding } from '../systems/PhysicsMath';
 
 interface Controls {
   left: Phaser.Input.Keyboard.Key;
@@ -28,6 +30,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private gamepadDashWasDown = false;
   private directionLockedUntil = 0;
   private wasGrounded = false;
+  private previousVelocityY = 0;
+  private landingEndsAt = 0;
+  private visualState?: PlayerState;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'player-idle-0');
@@ -64,7 +69,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   update(): void {
-    if (this.states.state === PlayerState.DEAD) {
+    if (this.states.state === PlayerState.DEAD || this.states.state === PlayerState.LOCKED) {
       return;
     }
 
@@ -139,12 +144,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     if (now - this.jumpQueuedAt <= MOVEMENT.jumpBufferMs && (canJump || wall)) {
       this.setVelocityY(-MOVEMENT.jumpSpeed);
+      this.scene.events.emit(Events.PLAYER_JUMP, this.x, this.y);
 
       if (wall && !grounded) {
         this.setVelocityX(body.blocked.left ? MOVEMENT.wallJumpX : -MOVEMENT.wallJumpX);
         this.setVelocityY(-MOVEMENT.wallJumpY);
         this.directionLockedUntil = now + MOVEMENT.wallJumpLockMs;
-        this.scene.events.emit('player:wall-jump', this.x, this.y);
+        this.scene.events.emit(Events.PLAYER_WALL_JUMP, this.x, this.y);
       }
 
       this.jumpQueuedAt = -Infinity;
@@ -169,10 +175,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.setVelocityY(MOVEMENT.wallSlideSpeed);
     }
 
-    this.updateState(grounded, wall, direction);
-    if (grounded && !this.wasGrounded && body.velocity.y >= MOVEMENT.landingThreshold) this.scene.events.emit('player:land',this.x,this.y);
-    this.wasGrounded=grounded;
-    this.setTexture(this.states.state===PlayerState.DASHING?'player-dash':this.states.state===PlayerState.JUMPING?'player-jump':this.states.state===PlayerState.FALLING?'player-fall':this.states.state===PlayerState.WALL_SLIDING?'player-wall':'player-idle-0');
+    if (grounded && !this.wasGrounded) {
+      const kind = classifyLanding(this.previousVelocityY);
+      this.states.transition(PlayerState.LANDING);
+      this.landingEndsAt = now + 85;
+      this.scene.events.emit(Events.PLAYER_LAND, this.x, this.y, kind);
+    }
+    if (this.states.state !== PlayerState.LANDING || now >= this.landingEndsAt || jumpPressed) {
+      this.updateState(grounded, wall, direction);
+    }
+    this.wasGrounded = grounded;
+    this.previousVelocityY = body.velocity.y;
+    this.updateVisual();
   }
 
   private startDash(direction: number): void {
@@ -182,7 +196,35 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.dashReadyAt = now + MOVEMENT.dashCooldownMs;
     this.setVelocity((direction || this.facing) * MOVEMENT.dashSpeed, 0);
     this.setAcceleration(0);
-    this.scene.events.emit('player:dash', this.x, this.y);
+    this.scene.events.emit(Events.PLAYER_DASH, this.x, this.y);
+  }
+
+  private updateVisual(): void {
+    const state = this.states.state;
+    if (state === this.visualState) return;
+    this.visualState = state;
+    if (state === PlayerState.IDLE) this.play('player-idle');
+    else if (state === PlayerState.RUNNING) this.play('player-run');
+    else {
+      this.stop();
+      const texture =
+        state === PlayerState.DASHING
+          ? 'player-dash'
+          : state === PlayerState.JUMPING
+            ? 'player-jump'
+            : state === PlayerState.FALLING
+              ? 'player-fall'
+              : state === PlayerState.WALL_SLIDING
+                ? 'player-wall'
+                : 'player-idle-0';
+      this.setTexture(texture);
+    }
+  }
+
+  lock(): void {
+    this.states.lock();
+    this.setAcceleration(0).setVelocity(0);
+    this.updateVisual();
   }
 
   private updateState(grounded: boolean, wall: boolean, direction: number): void {

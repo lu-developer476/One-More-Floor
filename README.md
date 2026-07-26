@@ -1,88 +1,79 @@
-# One More Floor v0.3.0
+# One More Floor v0.4.0
 
-Vertical slice 2D de plataformas de precisión construida con Phaser 3, TypeScript estricto y Vite. Escapá de cinco pisos breves de una instalación industrial antes del colapso.
+Juego 2D de plataformas de precisión construido con Phaser 3, TypeScript estricto y Vite. Escapá de cinco pisos breves de una instalación industrial antes del colapso.
 
-> Superar un piso más antes de que todo se derrumbe.
+![One More Floor en ejecución](docs/screenshots/gameplay.svg)
 
-![Vista del juego](docs/screenshots/gameplay.svg)
+## Qué incluye 0.4.0
 
-## Estado y características
-
-La versión `0.3.0` incluye cinco pisos basados en datos, reinicio de muerte menor a 800 ms, menú y selección desbloqueable, resultados/rangos por piso, HUD, pausa, persistencia validada y controles de teclado/gamepad. Toda la presentación usa texturas y formas generadas localmente; no descarga assets.
-
-| Piso | Identidad | Mecánicas principales |
-|---|---|---|
-| 1 · Evacuación | Azul frío | movimiento, salto variable, coyote, buffer y pinchos |
-| 2 · Mantenimiento | Verde técnico | plataformas móviles/one-way, electricidad y dash |
-| 3 · Ventilación | Gris | ventiladores, corrientes y wall jump |
-| 4 · Reactor | Naranja | cintas, plataformas frágiles, puerta y láseres |
-| 5 · Colapso | Rojo alarma | combinación final con presión de tiempo |
-
-El jugador dispone de aceleración, frenado, control aéreo, salto variable, wall slide/jump, bloqueo direccional breve y dash aéreo recuperable. La cámara aplica seguimiento amortiguado, deadzone, fade, flash configurable y shake reducible. El escenario usa parallax con `TileSprite`, partículas, blend modes, texturas procedurales y capas de profundidad.
+- Cinco pisos basados en datos, sin combate ni sistemas ajenos al plataformas de precisión.
+- Movimiento con salto variable, coyote time, jump buffer, wall slide/jump y dash aéreo.
+- Puerta temporizada de Reactor con placa telegrafiada, indicador de tiempo, apertura visual y cierre que espera si el jugador obstruye el paso.
+- Estados reales `IDLE`, `RUNNING`, `JUMPING`, `FALLING`, `WALL_SLIDING`, `DASHING`, `LANDING`, `LOCKED` y `DEAD`; idle/run usan Animation Manager.
+- Aterrizaje único clasificado como suave o fuerte a partir de la velocidad previa al impacto.
+- Ventiladores y cintas calculados con delta real y limitados; las cintas convergen a una velocidad objetivo.
+- Menús independientes de ajustes y pausa, utilizables con teclado, gamepad y mouse.
+- Volumen, mute, shake, intensidad reducida, reducción de flashes, alto contraste y fullscreen persistidos en el guardado v3.
+- Audio procedural Web Audio compartido, desbloqueado tras interacción, con volumen, mute, pausa y cooldown.
+- Cobertura unitaria de temporización de puerta, aterrizaje y fuerzas, más Playwright para los flujos principales.
 
 ## Controles
 
-| Acción | Teclado | Gamepad |
-|---|---|---|
-| Mover | `A/D` o flechas | stick izquierdo |
-| Saltar | `W`, `↑`, espacio | A / botón inferior |
-| Dash | `Shift` | RB o RT |
-| Pausa | `Esc` | Start |
-| Reiniciar piso | `R` | menú de pausa |
-| Menú | flechas + `Enter` | gamepad |
+| Acción          | Teclado           | Gamepad                  |
+| --------------- | ----------------- | ------------------------ |
+| Mover           | `A/D` o flechas   | stick izquierdo          |
+| Saltar          | `W`, `↑`, espacio | A                        |
+| Dash            | `Shift`           | RB/RT                    |
+| Pausa           | `Esc`             | Start                    |
+| Reinicio rápido | `R`               | opción del menú de pausa |
+| Menús           | flechas + `Enter` | stick + A/B              |
 
-Los ajustes persistentes contemplan volumen, mute, shake/reducción de shake, reducción de flashes, contraste y fullscreen. La migración desde el guardado v1 se valida antes de usarse. `?debug` activa hitboxes de Arcade Physics durante desarrollo.
-
-## Arquitectura
-
-- `config/levelConfig.ts`: cinco definiciones tipadas, ambientación, geometría, hazards y rangos.
-- `systems/LevelFactory.ts`: construcción desacoplada de Phaser, preparada para sustituir la fuente por Tiled.
-- `entities/Player.ts` y `states/`: cuerpo físico, controlador y máquina de estados.
-- `objects/`: plataformas y hazards reutilizables con telegraph.
-- `systems/`: colapso por fases, tiempo, entorno, estadísticas y progresión.
-- `services/`: persistencia v2 y sintetizador procedural Web Audio.
-- `scenes/`: boot, menú, partida, HUD y resultados.
-
-Las funciones puras de ranking, configuración, temporizador, fases, progresión y migración tienen cobertura unitaria. Los listeners propios de escenas se retiran en `SHUTDOWN`.
+La pausa ofrece continuar, reiniciar, ajustes, controles y volver al menú. Los ajustes se modifican individualmente; no existe remapeo arbitrario.
 
 ## Desarrollo
 
 Requiere Node.js 20.19+ o 22.12+.
 
 ```bash
-npm install
+npm ci
 npm run dev
 npm run validate
+npm run test:e2e
+npm run test:e2e:headed
 ```
 
-`validate` ejecuta typecheck, ESLint, Vitest y build. La CI ejecuta esos mismos controles sin `continue-on-error`.
+`validate` ejecuta typecheck, ESLint, tests unitarios y build. Playwright inicia una build Vite con `VITE_E2E=true`; el harness no se instala en builds normales. La CI ejecuta validación y Chromium en jobs separados y conserva artefactos sólo al fallar.
+
+## Arquitectura
+
+- `config/`: cinco niveles tipados y parámetros de movimiento.
+- `objects/TimedDoor.ts`: presentación y cuerpo Phaser de las puertas.
+- `systems/DoorTimer.ts` y `PhysicsMath.ts`: lógica pura, temporal y de fuerzas.
+- `entities/Player.ts` y `states/`: controlador, animación y máquina de estados.
+- `scenes/SettingsScene.ts` y `PauseScene.ts`: overlays con ciclo de vida explícito.
+- `services/`: guardado v3 con migración v1/v2 y autoridad única de audio procedural.
+- `e2e/`: pruebas reales del canvas y flujos de navegador.
 
 ## Render
 
 Configurar como **Static Site**:
 
 ```text
-Build Command: npm install && npm run build
+Build Command: npm ci && npm run build
 Publish Directory: dist
 ```
 
-Vite usa una base relativa y no requiere servidor, `PORT`, backend ni servicios externos.
+Vite conserva una base relativa; no requiere backend ni recursos externos.
 
-## Playtesting y estabilidad
+## Limitaciones conocidas
 
-La pasada 0.3.0 corrige el dash previamente limitado por la velocidad máxima de carrera, hace que el salto corto se aplique una sola vez al soltar el botón y normaliza el deadzone de gamepad. Las plataformas móviles invierten su recorrido en extremos exactos y las hitboxes de pinchos son más pequeñas que su silueta visible para priorizar contactos justos. Cada piso declara su tiempo objetivo/rango S y su tiempo máximo de manera independiente.
+- Los tiempos/rangos todavía requieren balance con una muestra externa de jugadores.
+- Fullscreen depende de la concesión del navegador; el guardado se sincroniza con el evento real, no con la intención.
+- No hay remapeo arbitrario de controles.
+- La pasada automatizada cubre Chromium; hardware gamepad diverso, rendimiento de gama baja y playtesting humano exhaustivo siguen pendientes.
+- La captura SVG conserva la imagen real disponible en el repositorio en un formato de texto compatible con la revisión; debe regenerarse desde Playwright en un entorno que permita instalar Chromium antes de publicación definitiva.
 
-Los hazards temporizados ahora usan tiempo efectivo de juego: pausa, frames largos y reanudación no adelantan ciclos ni el temporizador. El reinicio protege la secuencia de muerte contra ejecuciones duplicadas, limpia listeners de escena y mantiene una única instancia de HUD. `?debug` muestra hitboxes, FPS, estado, posición, velocidad, contacto, dash, piso, reloj y objetos activos aproximados. La persistencia v3 valida datos corruptos y migra guardados v1/v2; los ajustes de reducción de shake/flashes siguen aplicándose inmediatamente.
-
-La validación automatizada cubre configuración, ranking, temporizador, hazards temporizados, estados, progresión y migraciones. Se revisó el ciclo local de carga y reinicio; el playtesting humano exhaustivo con hardware gamepad diverso y el perfil de memoria/draw calls en equipos de gama baja continúan siendo limitaciones conocidas, no garantías de esta versión.
-
-## Limitaciones y roadmap
-
-- Los tiempos por piso son objetivos de balance y todavía requieren playtesting con una muestra externa de jugadores.
-- El audio procedural está implementado como servicio, pero su integración completa con cada evento queda para una siguiente iteración.
-- El menú de ajustes usa presets; todavía no ofrece sliders ni remapeo arbitrario.
-- Las puertas poseen definición tipada, pero la interacción temporizada visual completa queda pendiente.
-- Próximos pasos: tests de navegador, perfiles de rendimiento WebGL/Canvas, mejor navegación gamepad y migración opcional a Tiled.
+La auditoría inicial detallada se conserva en [`docs/production-audit.md`](docs/production-audit.md).
 
 ## Licencia
 

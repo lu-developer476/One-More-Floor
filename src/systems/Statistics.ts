@@ -7,11 +7,19 @@ export const calculateRank = (level: LevelDefinition, timeMs: number, deaths: nu
   }
   return 'C';
 };
-export const nextRankGap = (level: LevelDefinition, rank: Rank, timeMs: number, deaths: number): string => {
+export const nextRankGap = (
+  level: LevelDefinition,
+  rank: Rank,
+  timeMs: number,
+  deaths: number,
+): string => {
   if (rank === 'S') return 'MEJOR RANGO CONSEGUIDO';
   const target = rank === 'A' ? level.ranks.S : rank === 'B' ? level.ranks.A : level.ranks.B;
   const timeGap = Math.max(0, timeMs - target.maxTimeMs);
   const deathGap = Math.max(0, deaths - target.maxDeaths);
-  const parts = [timeGap > 0 ? `${seconds(timeGap)} s` : '', deathGap > 0 ? `${deathGap} muerte${deathGap === 1 ? '' : 's'}` : ''].filter(Boolean);
+  const parts = [
+    timeGap > 0 ? `${seconds(timeGap)} s` : '',
+    deathGap > 0 ? `${deathGap} muerte${deathGap === 1 ? '' : 's'}` : '',
+  ].filter(Boolean);
   return `PRÓXIMO RANGO: MEJORÁ ${parts.join(' Y ')}`;
 };

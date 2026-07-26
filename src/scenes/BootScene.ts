@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 
 type DrawTexture = (graphics: Phaser.GameObjects.Graphics) => void;
-type PlayerPose = 'idle-a' | 'idle-b' | 'run-a' | 'run-b' | 'run-c' | 'jump' | 'fall' | 'wall' | 'dash';
+type PlayerPose =
+  'idle-a' | 'idle-b' | 'run-a' | 'run-b' | 'run-c' | 'jump' | 'fall' | 'wall' | 'dash';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -167,22 +168,40 @@ export class BootScene extends Phaser.Scene {
     graphics.fillStyle(0x18313d).fillRect(12, bodyY + 8, 14, 5);
 
     if (pose === 'run-a') {
-      graphics.fillStyle(0x5ef1ff).fillRect(7, legY, 8, 9).fillRect(22, legY - 2, 8, 6);
+      graphics
+        .fillStyle(0x5ef1ff)
+        .fillRect(7, legY, 8, 9)
+        .fillRect(22, legY - 2, 8, 6);
     } else if (pose === 'run-b') {
       graphics.fillStyle(0x5ef1ff).fillRect(10, legY, 7, 8).fillRect(20, legY, 7, 8);
     } else if (pose === 'run-c') {
-      graphics.fillStyle(0x5ef1ff).fillRect(7, legY - 2, 8, 6).fillRect(22, legY, 8, 9);
+      graphics
+        .fillStyle(0x5ef1ff)
+        .fillRect(7, legY - 2, 8, 6)
+        .fillRect(22, legY, 8, 9);
     } else if (pose === 'jump') {
-      graphics.fillStyle(0x5ef1ff).fillRect(9, legY - 1, 8, 7).fillRect(21, legY - 4, 8, 6);
+      graphics
+        .fillStyle(0x5ef1ff)
+        .fillRect(9, legY - 1, 8, 7)
+        .fillRect(21, legY - 4, 8, 6);
       graphics.fillStyle(0x5ef1ff).fillRect(4, bodyY + 9, 6, 5);
     } else if (pose === 'fall') {
       graphics.fillStyle(0x5ef1ff).fillRect(8, legY, 8, 7).fillRect(22, legY, 8, 7);
-      graphics.fillStyle(0x5ef1ff).fillRect(4, bodyY + 7, 6, 5).fillRect(28, bodyY + 7, 6, 5);
+      graphics
+        .fillStyle(0x5ef1ff)
+        .fillRect(4, bodyY + 7, 6, 5)
+        .fillRect(28, bodyY + 7, 6, 5);
     } else if (pose === 'wall') {
-      graphics.fillStyle(0x5ef1ff).fillRect(11, legY - 1, 7, 7).fillRect(22, legY - 5, 7, 6);
+      graphics
+        .fillStyle(0x5ef1ff)
+        .fillRect(11, legY - 1, 7, 7)
+        .fillRect(22, legY - 5, 7, 6);
       graphics.fillStyle(0x5ef1ff).fillRect(29, bodyY + 5, 5, 11);
     } else if (pose === 'dash') {
-      graphics.fillStyle(0x5ef1ff).fillRect(11, legY - 2, 8, 5).fillRect(21, legY - 2, 8, 5);
+      graphics
+        .fillStyle(0x5ef1ff)
+        .fillRect(11, legY - 2, 8, 5)
+        .fillRect(21, legY - 2, 8, 5);
       graphics.fillStyle(0xf5c84c).fillRect(1, bodyY + 8, 8, 3);
     } else {
       graphics.fillStyle(0x5ef1ff).fillRect(10, legY, 7, 8).fillRect(21, legY, 7, 8);
