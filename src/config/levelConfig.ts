@@ -19,6 +19,11 @@ const base = (
   accentColor,
   backgroundColor,
   spawn: { x: 90, y: 620 },
+  practiceAnchors: [
+    { id: 'start', name: 'INICIO', x: 90, y: 620 },
+    { id: 'core', name: 'MECÁNICA CENTRAL', x: Math.round(width * 0.5), y: 620 },
+    { id: 'final', name: 'TRAMO FINAL', x: Math.round(width * 0.82), y: 620 },
+  ],
   exit: { x: width - 100, y: 620, label: 'ASCENSOR' },
   platforms: [ground(width)],
   movingPlatforms: [],

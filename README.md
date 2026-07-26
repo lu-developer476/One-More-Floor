@@ -1,30 +1,39 @@
-# One More Floor v0.5.0
+# One More Floor v0.6.0
 
 Plataformas 2D de precisión construido con Phaser 3.90, TypeScript estricto y Vite. Escapá de cinco pisos data-driven antes del colapso, ahora con contrarreloj justo y fantasma local.
 
-## Qué incluye 0.5.0
+## Qué incluye 0.6.0
 
 - Cuenta regresiva procedural `3 · 2 · 1 · GO`: jugador, cronómetro, hazards y plataformas permanecen detenidos hasta la salida.
 - Cronómetro de intento basado exclusivamente en delta de gameplay limitado; pausa, muerte, resultados y countdown no cuentan.
 - Grabación fija a 20 Hz, posiciones cuantizadas, límites estrictos y reproducción interpolada mediante un único sprite sin cuerpo físico.
 - El mejor ghost se guarda por piso sólo junto a un récord válido; los intentos fallidos se descartan.
 - Menú y HUD muestran PB, rango y disponibilidad del fantasma; `showGhost` se aplica y persiste de inmediato.
-- Persistencia JSON v4, con migración defensiva desde v1, v2 y v3 y recuperación aislada de ghosts corruptos.
+- Persistencia JSON v5, con migración defensiva desde v1, v2 y v3 y recuperación aislada de ghosts corruptos.
 - Limpieza confirmada de fantasmas, récords o progreso completo desde Ajustes.
 - Recursos gráficos y audio generados en runtime. El repositorio aplica una política **text-only** y no contiene capturas.
 
 ## Controles
 
-| Acción | Teclado | Gamepad |
-| --- | --- | --- |
-| Mover | `A/D` o flechas | stick izquierdo |
-| Saltar | `W`, `↑`, espacio | A |
-| Dash | `Shift` | RB/RT |
-| Pausa | `Esc` | Start |
-| Reinicio | `R` | menú de pausa |
-| Menús | flechas + `Enter` | stick + A/B |
+| Acción   | Teclado           | Gamepad         |
+| -------- | ----------------- | --------------- |
+| Mover    | `A/D` o flechas   | stick izquierdo |
+| Saltar   | `W`, `↑`, espacio | A               |
+| Dash     | `Shift`           | RB/RT           |
+| Pausa    | `Esc`             | Start           |
+| Reinicio | `R`               | menú de pausa   |
+| Menús    | flechas + `Enter` | stick + A/B     |
 
 La cuenta regresiva permite pausar o volver al menú. No se puede saltar y ningún input anterior a `GO` se convierte en una acción jugable.
+
+## Input, práctica y elegibilidad
+
+- `InputManager` traduce teclado, Gamepad estándar y pointer a acciones semánticas, con estados `down`, `pressed`, `released`, ejes, deadzone y bloqueo de pulsaciones heredadas.
+- `ControlsScene` permite remapear teclado y gamepad, resolver conflictos por intercambio, restaurar defaults y persistir estilos de prompt.
+- Cada uno de los cinco pisos ofrece contrarreloj o práctica y tres anchors data-driven: inicio, mecánica central y tramo final. La muerte en práctica conserva piso, modo y anchor.
+- Práctica nunca expira por colapso y nunca guarda PB, rango, ghost ni desbloqueos. Las asistencias de gameplay permiten progresión pero invalidan récords; opciones puramente visuales no lo hacen.
+- `RunEligibility` es la autoridad pura para resultados competitivos, de práctica, asistidos y ejecuciones del harness.
+- El gamepad se valida con lógica pura y un adaptador E2E; Chromium automatizado no sustituye pruebas con hardware, drivers y layouts reales. La vibración no se activa cuando no se detecta soporte seguro.
 
 ## Desarrollo y política text-only
 
@@ -47,7 +56,7 @@ npm run test:e2e
 - `runs/GhostValidator.ts`: validación pura de JSON y límites.
 - `runs/GhostInterpolation.ts`: reproducción temporal pura y búsqueda incremental.
 - `runs/GhostPlayer.ts`: único sprite visual no físico.
-- `services/StorageService.ts`: autoridad de persistencia v4 y migraciones.
+- `services/StorageService.ts`: autoridad de persistencia v5 y migraciones.
 - `scenes/`: composición, UI, ajustes y resultados.
 - `e2e/`: flujos de navegador basados en harness/estado, nunca píxeles.
 
@@ -60,7 +69,8 @@ Static Site: build `npm ci && npm run build`, publicación `dist`. No requiere b
 - Los tiempos y rangos aún requieren balance con una muestra externa de jugadores.
 - El ghost es local al navegador y no ofrece ranking remoto ni exportación.
 - Si alcanza el máximo de duración o samples, el recorder deja de agregar muestras sin interrumpir la partida.
-- Fullscreen depende de la concesión del navegador. No existe remapeo arbitrario.
+- Fullscreen depende de la concesión del navegador. El remapeo acepta códigos de teclado conocidos y botones Gamepad estándar.
+- Los prompts son textuales y cambian entre estilos genérico, Xbox, PlayStation y Nintendo; el estilo no altera el mapeo físico.
 - CI automatiza Chromium; gamepads diversos, equipos de gama baja y playtesting humano exhaustivo siguen pendientes.
 
 La auditoría de esta versión está en [`docs/time-trial-audit.md`](docs/time-trial-audit.md).

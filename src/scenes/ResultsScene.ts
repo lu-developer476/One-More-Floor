@@ -4,7 +4,11 @@ import { LEVELS } from '../config/levelConfig';
 import { StorageService } from '../services/StorageService';
 import { calculateRank, nextRankGap, seconds } from '../systems/Statistics';
 import { audioService } from '../services/AudioService';
+import { InputManager } from '../input/InputManager';
+import { InputAction } from '../input/InputAction';
 export class ResultsScene extends Phaser.Scene {
+  private manager?: InputManager;
+  private resultData?: ResultData;
   constructor() {
     super('Results');
   }
@@ -12,8 +16,14 @@ export class ResultsScene extends Phaser.Scene {
     const level = LEVELS[data.levelIndex];
     if (!level) throw new Error('Invalid result level');
     const rank = calculateRank(level, data.elapsedMs, data.deaths);
-    const saved = new StorageService().recordFloor(data.floor, data.elapsedMs, data.deaths, rank, data.ghostRun);
-    const best = saved.floors[String(data.floor)];
+    const service = new StorageService();
+    const outcome = data.eligibility.bestTime
+      ? service.recordFloor(data.floor, data.elapsedMs, data.deaths, rank, data.ghostRun)
+      : null;
+    const best = (outcome?.save ?? service.load()).floors[String(data.floor)];
+    this.manager = new InputManager(this, service.load().input);
+    this.manager.blockInherited();
+    this.resultData = data;
     this.cameras.main.setBackgroundColor('#0c1119');
     const heading = this.add
       .text(480, 82, data.final ? 'EVACUACIÓN COMPLETA' : 'PISO COMPLETADO', {
@@ -23,7 +33,7 @@ export class ResultsScene extends Phaser.Scene {
         fontStyle: 'bold',
       })
       .setOrigin(0.5);
-    if (data.ghostSaved) {
+    if (outcome?.newBestTime) {
       heading.setText('NUEVO RÉCORD');
       this.tweens.add({ targets: heading, scale: 1.08, duration: 420, yoyo: true, repeat: 2 });
       audioService.play('record', 0);
@@ -39,7 +49,12 @@ export class ResultsScene extends Phaser.Scene {
           `MEJOR ANTERIOR ${data.previousBestMs === null ? '--' : `${seconds(data.previousBestMs)} s`}`,
           `MUERTES ${data.deaths}  ·  MEJOR ${best?.fewestDeaths ?? data.deaths}`,
           nextRankGap(level, rank, data.elapsedMs, data.deaths),
-          data.ghostSaved ? 'FANTASMA NUEVO GUARDADO' : 'FANTASMA SIN CAMBIOS',
+          data.eligibility.status,
+          outcome?.ghostSaved
+            ? 'FANTASMA NUEVO GUARDADO'
+            : data.eligibility.ghost
+              ? 'FANTASMA SIN CAMBIOS'
+              : 'RESULTADO NO COMPETITIVO',
           data.final ? `TOTAL ${seconds(data.totalElapsedMs)} s` : '',
         ].filter(Boolean),
         {
@@ -52,25 +67,28 @@ export class ResultsScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
     this.add
-      .text(480, 440, `${data.final ? 'ENTER · MENÚ' : 'ENTER / A · SIGUIENTE PISO'}  ·  R REPETIR  ·  M MENÚ`, {
-        fontFamily: 'monospace',
-        fontSize: '18px',
-        color: '#f5c84c',
-      })
+      .text(
+        480,
+        440,
+        `${data.final ? 'ENTER · MENÚ' : 'ENTER / A · SIGUIENTE PISO'}  ·  R REPETIR  ·  M MENÚ`,
+        {
+          fontFamily: 'monospace',
+          fontSize: '18px',
+          color: '#f5c84c',
+        },
+      )
       .setOrigin(0.5);
-    const next = () =>
-      data.final
-        ? this.scene.start('Menu')
-        : this.scene.start('Level', {
-            levelIndex: data.levelIndex + 1,
-            deaths: 0,
-            totalElapsedMs: data.totalElapsedMs,
-          });
-    this.time.delayedCall(180, () => {
-      this.input.keyboard?.once('keydown-ENTER', next);
-      this.input.gamepad?.once('down', next);
-      this.input.keyboard?.once('keydown-R', () => this.scene.start('Level', { levelIndex: data.levelIndex }));
-      this.input.keyboard?.once('keydown-M', () => this.scene.start('Menu'));
-    });
+  }
+  update(): void {
+    const data = this.resultData,
+      manager = this.manager;
+    if (!data || !manager) return;
+    manager.poll();
+    if (manager.wasPressed(InputAction.BACK)) this.scene.start('Menu');
+    else if (manager.wasPressed(InputAction.RESTART))
+      this.scene.start('Level', { levelIndex: data.levelIndex, mode: data.mode });
+    else if (manager.wasPressed(InputAction.CONFIRM))
+      if (data.final || data.mode !== 'competitive') this.scene.start('Menu');
+      else this.scene.start('Level', { levelIndex: data.levelIndex + 1, mode: 'competitive' });
   }
 }
