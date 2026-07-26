@@ -1,2 +1,47 @@
-import Phaser from 'phaser';import { BootScene } from '../scenes/BootScene';import { MenuScene } from '../scenes/MenuScene';import { LevelScene } from '../scenes/LevelScene';import { UIScene } from '../scenes/UIScene';import { ResultsScene } from '../scenes/ResultsScene';import { MOVEMENT } from './movementConfig';
-export const gameConfig:Phaser.Types.Core.GameConfig={type:Phaser.AUTO,parent:'game',width:960,height:540,backgroundColor:'#0c1119',pixelArt:true,roundPixels:true,scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},physics:{default:'arcade',arcade:{gravity:{x:0,y:MOVEMENT.gravity},debug:import.meta.env.DEV&&new URLSearchParams(location.search).has('debug')}},input:{gamepad:true},scene:[BootScene,MenuScene,LevelScene,UIScene,ResultsScene]};
+import Phaser from 'phaser';
+import { BootScene } from '../scenes/BootScene';
+import { LevelScene } from '../scenes/LevelScene';
+import { MenuScene } from '../scenes/MenuScene';
+import { ResultsScene } from '../scenes/ResultsScene';
+import { UIScene } from '../scenes/UIScene';
+import { MOVEMENT } from './movementConfig';
+
+export const GAME_WIDTH = 960;
+export const GAME_HEIGHT = 540;
+
+const debugPhysics =
+  import.meta.env.DEV && new URLSearchParams(window.location.search).has('debug');
+
+export const gameConfig: Phaser.Types.Core.GameConfig = {
+  type: Phaser.AUTO,
+  parent: 'game',
+  title: 'One More Floor',
+  version: '0.2.0',
+  width: GAME_WIDTH,
+  height: GAME_HEIGHT,
+  backgroundColor: '#080b12',
+  pixelArt: true,
+  roundPixels: true,
+  fps: {
+    target: 60,
+    smoothStep: true,
+  },
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+  physics: {
+    default: 'arcade',
+    arcade: {
+      gravity: { x: 0, y: MOVEMENT.gravity },
+      fixedStep: true,
+      fps: 120,
+      overlapBias: 8,
+      debug: debugPhysics,
+    },
+  },
+  input: {
+    gamepad: true,
+  },
+  scene: [BootScene, MenuScene, LevelScene, UIScene, ResultsScene],
+};
