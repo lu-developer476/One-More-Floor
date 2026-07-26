@@ -27,14 +27,7 @@ export class LaserGate {
       .setDepth(12);
 
     this.beam = scene.add
-      .rectangle(
-        definition.x,
-        definition.y,
-        definition.width,
-        definition.height,
-        0xff405c,
-        0,
-      )
+      .rectangle(definition.x, definition.y, definition.width, definition.height, 0xff405c, 0)
       .setBlendMode(Phaser.BlendModes.ADD)
       .setDepth(13);
 
@@ -67,8 +60,13 @@ export class LaserGate {
   }
 
   update(time: number): void {
-    const state = timedCycleState(time, this.definition.activeMs, this.definition.inactiveMs,
-      this.definition.warningMs, this.definition.phaseMs);
+    const state = timedCycleState(
+      time,
+      this.definition.activeMs,
+      this.definition.inactiveMs,
+      this.definition.warningMs,
+      this.definition.phaseMs,
+    );
     const nextActive = state === 'active';
     const warning = state === 'warning';
 

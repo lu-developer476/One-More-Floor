@@ -4,6 +4,8 @@ import { LevelScene } from '../scenes/LevelScene';
 import { MenuScene } from '../scenes/MenuScene';
 import { ResultsScene } from '../scenes/ResultsScene';
 import { UIScene } from '../scenes/UIScene';
+import { SettingsScene } from '../scenes/SettingsScene';
+import { PauseScene } from '../scenes/PauseScene';
 import { MOVEMENT } from './movementConfig';
 
 export const GAME_WIDTH = 960;
@@ -15,7 +17,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game',
   title: 'One More Floor',
-  version: '0.3.0',
+  version: '0.4.0',
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: '#080b12',
@@ -42,5 +44,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   input: {
     gamepad: true,
   },
-  scene: [BootScene, MenuScene, LevelScene, UIScene, ResultsScene],
+  scene: [BootScene, MenuScene, LevelScene, UIScene, ResultsScene, SettingsScene, PauseScene],
 };

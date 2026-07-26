@@ -14,10 +14,7 @@ export class EnvironmentSystem {
     scene: Phaser.Scene,
     private readonly level: LevelDefinition,
   ) {
-    scene.add
-      .rectangle(0, 0, level.width, level.height, 0x080b12)
-      .setOrigin(0)
-      .setDepth(-120);
+    scene.add.rectangle(0, 0, level.width, level.height, 0x080b12).setOrigin(0).setDepth(-120);
 
     this.farLayer = scene.add
       .tileSprite(0, 0, level.width, level.height, 'bg-far')

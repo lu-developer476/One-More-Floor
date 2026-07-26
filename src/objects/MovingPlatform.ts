@@ -34,10 +34,12 @@ export class MovingPlatform extends Phaser.Physics.Arcade.Sprite {
 
     if (position >= this.maximum) {
       this.direction = -1;
-      if (this.definition.axis === 'x') this.x = this.maximum; else this.y = this.maximum;
+      if (this.definition.axis === 'x') this.x = this.maximum;
+      else this.y = this.maximum;
     } else if (position <= this.minimum) {
       this.direction = 1;
-      if (this.definition.axis === 'x') this.x = this.minimum; else this.y = this.minimum;
+      if (this.definition.axis === 'x') this.x = this.minimum;
+      else this.y = this.minimum;
     }
 
     this.applyVelocity();
