@@ -17,7 +17,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game',
   title: 'One More Floor',
-  version: '0.4.0',
+  version: '0.5.0',
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: '#080b12',

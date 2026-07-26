@@ -9,6 +9,9 @@ import type { LevelDefinition, LevelSceneData } from '../types/game';
 import { StorageService, type Settings } from '../services/StorageService';
 import { TOTAL_FLOORS } from '../config/levelConfig';
 import { audioService } from '../services/AudioService';
+import { RunCountdown } from '../systems/RunCountdown';
+import { RunRecorder, visualState } from '../runs/RunRecorder';
+import { GhostPlayer } from '../runs/GhostPlayer';
 
 const DEATH_FADE_MS = 260;
 const DEATH_RESTART_MS = 480;
@@ -30,10 +33,17 @@ export class LevelScene extends Phaser.Scene {
   private gameplayTimeMs = 0;
   private lastStart = false;
   private deltaSeconds = 0;
+  private countdown!: RunCountdown;
+  private recorder!: RunRecorder;
+  private ghost?: GhostPlayer;
+  private attemptMs = 0;
+  private bestTimeMs: number | null = null;
+  private runStarted = false;
 
   constructor() {
     super('Level');
   }
+  getRunState(): { countdownFinished: boolean; attemptMs: number; ghostActive: boolean; playerState: string } { return { countdownFinished: this.countdown?.finished ?? false, attemptMs: this.attemptMs, ghostActive: Boolean(this.ghost), playerState: this.player?.states.state ?? 'NONE' }; }
 
   init(data: LevelSceneData): void {
     this.levelIndex = data.levelIndex ?? 0;
@@ -46,6 +56,8 @@ export class LevelScene extends Phaser.Scene {
     this.complete = false;
     this.paused = false;
     this.gameplayTimeMs = 0;
+    this.attemptMs = 0;
+    this.runStarted = false;
     this.lastStart = false;
     this.level = new LevelManager().get(this.levelIndex);
     this.physics.world.setBounds(0, 0, this.level.width, this.level.height);
@@ -55,7 +67,14 @@ export class LevelScene extends Phaser.Scene {
     this.environment = new EnvironmentSystem(this, this.level);
     this.built = new LevelFactory(this).build(this.level);
     this.player = new Player(this, this.level.spawn.x, this.level.spawn.y);
-    const settings = new StorageService().load().settings;
+    const save = new StorageService().load();
+    const settings = save.settings;
+    const record = save.floors[String(this.level.floor)];
+    this.bestTimeMs = record?.bestTimeMs ?? null;
+    this.recorder = new RunRecorder(this.level.floor);
+    this.player.lock();
+    this.physics.world.pause();
+    if (settings.showGhost && record?.bestGhost) this.ghost = new GhostPlayer(this, record.bestGhost, 0.28, settings.highContrast);
     audioService.apply(settings);
     this.collapse = new CollapseSystem(this, this.level.durationMs);
     this.bindPhysics();
@@ -75,9 +94,10 @@ export class LevelScene extends Phaser.Scene {
     eventBus.on(Events.SETTINGS_CHANGED, this.applySettings, this);
     eventBus.on(Events.PAUSE_RESTART, this.restart, this);
     this.applySettings(settings);
+    this.countdown = new RunCountdown(this, () => { if (this.dead || this.complete) return; this.runStarted = true; this.physics.world.resume(); this.player.unlock(); });
     if (import.meta.env.VITE_E2E) {
       this.events.on('e2e:kill', this.die, this);
-      this.events.on('e2e:complete', this.finish, this);
+      this.events.on('e2e:complete', this.e2eComplete, this);
     }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
     if (new URLSearchParams(window.location.search).has('debug')) this.createDebugPanel();
@@ -114,8 +134,12 @@ export class LevelScene extends Phaser.Scene {
 
     const safeDelta = Math.min(Math.max(delta, 0), MAX_FRAME_DELTA_MS);
     this.deltaSeconds = safeDelta / 1000;
+    if (!this.runStarted) { this.emitHud(false); return; }
     this.gameplayTimeMs += safeDelta;
+    this.attemptMs += safeDelta;
     this.player.update();
+    this.recorder.update(safeDelta, { x: this.player.x, y: this.player.y, facing: this.player.facingDirection, state: visualState(this.player.states.state) });
+    this.ghost?.update(this.attemptMs);
     for (const moving of this.built.moving) moving.update();
     for (const falling of this.built.falling) falling.update(this.level.height);
     for (const laser of this.built.lasers) laser.update(this.gameplayTimeMs);
@@ -141,12 +165,16 @@ export class LevelScene extends Phaser.Scene {
       dashReady: this.player.dashAvailable,
       paused,
       progress: this.player.x / this.level.width,
+      attemptMs: this.attemptMs,
+      bestTimeMs: this.bestTimeMs,
+      ghostActive: Boolean(this.ghost),
     });
   }
 
   private die(): void {
     if (this.dead || this.complete) return;
     this.dead = true;
+    this.recorder.reset();
     this.deaths += 1;
     this.player.kill();
     audioService.play('death', 300);
@@ -171,7 +199,10 @@ export class LevelScene extends Phaser.Scene {
     this.player.lock();
     audioService.play('elevator', 300);
     this.collapse.stop();
-    const elapsed = this.level.durationMs - this.collapse.timer.remainingMs;
+    const elapsed = Math.round(this.attemptMs);
+    const previousBestMs = this.bestTimeMs;
+    const ghostRun = this.recorder.finish(elapsed);
+    const ghostSaved = previousBestMs === null || elapsed < previousBestMs;
     this.cameras.main.zoomTo(1.025, 180);
     this.time.delayedCall(260, () => {
       this.scene.stop('UI');
@@ -182,8 +213,18 @@ export class LevelScene extends Phaser.Scene {
         levelIndex: this.levelIndex,
         totalElapsedMs: this.totalElapsedMs + elapsed,
         final: this.levelIndex === 4,
+        previousBestMs,
+        ghostSaved,
+        ghostRun,
       });
     });
+  }
+  private e2eComplete(): void {
+    if (!this.runStarted) { this.runStarted = true; this.physics.world.resume(); this.player.unlock(); }
+    this.attemptMs = Math.max(this.attemptMs, 100);
+    this.recorder.update(50, { x: this.player.x, y: this.player.y, facing: this.player.facingDirection, state: visualState(this.player.states.state) });
+    this.recorder.update(50, { x: this.player.x + 1, y: this.player.y, facing: this.player.facingDirection, state: visualState(this.player.states.state) });
+    this.finish();
   }
 
   private restart(): void {
@@ -276,6 +317,8 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private shutdown(): void {
+    this.countdown?.destroy();
+    this.ghost?.destroy();
     this.input.keyboard?.off('keydown-R', this.restart, this);
     this.input.keyboard?.off('keydown-ESC', this.openPause, this);
     this.events.off(Events.PLAYER_DASH, this.dashTrail, this);
@@ -286,7 +329,7 @@ export class LevelScene extends Phaser.Scene {
     eventBus.off(Events.SETTINGS_CHANGED, this.applySettings, this);
     eventBus.off(Events.PAUSE_RESTART, this.restart, this);
     this.events.off('e2e:kill', this.die, this);
-    this.events.off('e2e:complete', this.finish, this);
+    this.events.off('e2e:complete', this.e2eComplete, this);
     for (const door of this.built.timedDoors) door.destroy();
     this.environment.destroy();
     this.scene.stop('UI');

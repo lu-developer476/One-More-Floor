@@ -14,7 +14,7 @@ describe('StorageService', () => {
     const store = new MemoryStorage();
     expect(new StorageService(store).load().unlockedFloor).toBe(1);
     store.values.set('one-more-floor.save.v3', '{');
-    expect(new StorageService(store).load().version).toBe(3);
+    expect(new StorageService(store).load().version).toBe(4);
   });
   it('clamps and rejects corrupt fields without losing valid settings', () => {
     const store = new MemoryStorage();
@@ -44,7 +44,8 @@ describe('StorageService', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.version).toBe(3);
+    expect(data.version).toBe(4);
+    expect(data.settings.showGhost).toBe(true);
     expect(data.unlockedFloor).toBe(2);
     expect(data.settings.reduceFlashes).toBe(false);
     expect(data.floors['1']?.rank).toBe('A');
@@ -66,5 +67,14 @@ describe('StorageService', () => {
     const data = service.recordFloor(1, 2500, 1, 'A');
     expect(data.floors['1']).toMatchObject({ bestTimeMs: 2000, fewestDeaths: 1, rank: 'A' });
     expect(data.unlockedFloor).toBe(2);
+  });
+  it('saves only a faster valid ghost and can clear ghosts', async () => {
+    const { PlayerState } = await import('../types/game');
+    const ghost = { version: 1 as const, floor: 1, durationMs: 1000, sampleIntervalMs: 50, samples: [{ timeMs: 0, x: 0, y: 0, facing: 1 as const, state: PlayerState.IDLE }, { timeMs: 1000, x: 10, y: 0, facing: 1 as const, state: PlayerState.RUNNING }] };
+    const service = new StorageService(new MemoryStorage());
+    expect(service.recordFloor(1, 1000, 0, 'S', ghost).floors['1']?.bestGhost).not.toBeNull();
+    const slower = { ...ghost, durationMs: 1200, samples: ghost.samples.map((sample, index) => ({ ...sample, timeMs: index * 1200 })) };
+    expect(service.recordFloor(1, 1200, 0, 'S', slower).floors['1']?.bestGhost?.durationMs).toBe(1000);
+    expect(service.clearGhosts().floors['1']?.bestGhost).toBeNull();
   });
 });

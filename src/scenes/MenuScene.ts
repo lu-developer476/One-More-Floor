@@ -34,7 +34,7 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(480, 137, 'UN PISO MÁS ANTES DEL COLAPSO · v0.4.0', {
+      .text(480, 137, 'CONTRARRELOJ LOCAL · v0.5.0', {
         fontFamily: 'monospace',
         fontSize: '15px',
         color: '#f5c84c',
@@ -42,10 +42,7 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5);
     const options = [
       'JUGAR / CONTINUAR',
-      ...LEVELS.map(
-        (level, index) =>
-          `${index < this.unlocked ? '' : '🔒 '}PISO ${level.floor} · ${level.name}`,
-      ),
+      ...LEVELS.map((level, index) => { const record = save.floors[String(level.floor)]; return `${index < this.unlocked ? '' : '🔒 '}PISO ${level.floor} · ${level.name} · PB ${record?.bestTimeMs ? `${(record.bestTimeMs / 1000).toFixed(2)}s` : '--'} · ${record?.rank ?? '-'}${record?.bestGhost ? ' · FANTASMA DISPONIBLE' : ''}`; }),
       'AJUSTES',
       'CRÉDITOS',
     ];
@@ -53,7 +50,7 @@ export class MenuScene extends Phaser.Scene {
       const item = this.add
         .text(480, 190 + index * 34, label, {
           fontFamily: 'monospace',
-          fontSize: '17px',
+          fontSize: '14px',
           color: '#91a6b6',
         })
         .setOrigin(0.5)

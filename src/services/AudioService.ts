@@ -11,6 +11,8 @@ export type Effect =
   | 'electricity'
   | 'break'
   | 'countdown'
+  | 'go'
+  | 'record'
   | 'complete'
   | 'menuMove'
   | 'menuConfirm'
@@ -27,6 +29,8 @@ const tones: Record<Effect, number> = {
   electricity: 620,
   break: 95,
   countdown: 280,
+  go: 720,
+  record: 920,
   complete: 660,
   menuMove: 300,
   menuConfirm: 480,

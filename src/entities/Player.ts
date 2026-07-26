@@ -67,6 +67,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   get dashAvailable(): boolean {
     return this.airDash && this.scene.time.now >= this.dashReadyAt;
   }
+  get facingDirection(): -1 | 1 { return this.facing < 0 ? -1 : 1; }
+  unlock(): void {
+    this.states.unlock();
+    this.jumpQueuedAt = -Infinity;
+    this.gamepadJumpWasDown = Boolean(this.scene.input.gamepad?.getPad(0)?.A);
+    this.gamepadDashWasDown = Boolean(this.scene.input.gamepad?.getPad(0)?.R1);
+  }
 
   update(): void {
     if (this.states.state === PlayerState.DEAD || this.states.state === PlayerState.LOCKED) {

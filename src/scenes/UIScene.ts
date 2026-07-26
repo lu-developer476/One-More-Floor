@@ -25,10 +25,10 @@ export class UIScene extends Phaser.Scene {
   private onHud(data: HudData): void {
     this.title.setText(`PISO ${data.floor}/${data.totalFloors} · ${data.floorName}`);
     this.timer
-      .setText((data.remainingMs / 1000).toFixed(2))
+      .setText(`INTENTO ${(data.attemptMs / 1000).toFixed(2)} · COLAPSO ${(data.remainingMs / 1000).toFixed(1)}`)
       .setColor(data.remainingMs < 10000 ? '#ff405c' : '#fff')
       .setScale(data.remainingMs < 10000 ? 1.12 : 1);
-    this.stats.setText(`MUERTES ${data.deaths}`);
+    this.stats.setText(`${data.ghostActive ? 'FANTASMA · ' : ''}PB ${data.bestTimeMs === null ? '--' : (data.bestTimeMs / 1000).toFixed(2)} · MUERTES ${data.deaths}`);
     this.dash
       .setText(data.dashReady ? 'DASH ●' : 'DASH ○')
       .setColor(data.dashReady ? '#5ef1ff' : '#667782');
