@@ -4,37 +4,30 @@ import { PlayerStateMachine } from '../states/PlayerStateMachine';
 import { PlayerState } from '../types/game';
 import { Events } from '../utils/EventBus';
 import { classifyLanding } from '../systems/PhysicsMath';
-
-interface Controls {
-  left: Phaser.Input.Keyboard.Key;
-  right: Phaser.Input.Keyboard.Key;
-  arrowLeft: Phaser.Input.Keyboard.Key;
-  arrowRight: Phaser.Input.Keyboard.Key;
-  jump: Phaser.Input.Keyboard.Key;
-  up: Phaser.Input.Keyboard.Key;
-  w: Phaser.Input.Keyboard.Key;
-  dash: Phaser.Input.Keyboard.Key;
-}
+import { InputAction } from '../input/InputAction';
+import type { InputManager } from '../input/InputManager';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   readonly states = new PlayerStateMachine();
 
-  private controls: Controls;
   private lastGroundedAt = -Infinity;
   private jumpQueuedAt = -Infinity;
   private dashEndsAt = 0;
   private dashReadyAt = 0;
   private airDash = true;
   private facing = 1;
-  private gamepadJumpWasDown = false;
-  private gamepadDashWasDown = false;
   private directionLockedUntil = 0;
   private wasGrounded = false;
   private previousVelocityY = 0;
   private landingEndsAt = 0;
   private visualState?: PlayerState;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    private readonly inputManager: InputManager,
+  ) {
     super(scene, x, y, 'player-idle-0');
 
     scene.add.existing(this);
@@ -46,33 +39,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setSize(24, 38).setOffset(4, 2);
-
-    const keyboard = scene.input.keyboard;
-    if (!keyboard) {
-      throw new Error('Keyboard input unavailable');
-    }
-
-    this.controls = {
-      left: keyboard.addKey('A'),
-      right: keyboard.addKey('D'),
-      arrowLeft: keyboard.addKey('LEFT'),
-      arrowRight: keyboard.addKey('RIGHT'),
-      w: keyboard.addKey('W'),
-      up: keyboard.addKey('UP'),
-      jump: keyboard.addKey('SPACE'),
-      dash: keyboard.addKey('SHIFT'),
-    };
   }
 
   get dashAvailable(): boolean {
     return this.airDash && this.scene.time.now >= this.dashReadyAt;
   }
-  get facingDirection(): -1 | 1 { return this.facing < 0 ? -1 : 1; }
+  get facingDirection(): -1 | 1 {
+    return this.facing < 0 ? -1 : 1;
+  }
   unlock(): void {
     this.states.unlock();
     this.jumpQueuedAt = -Infinity;
-    this.gamepadJumpWasDown = Boolean(this.scene.input.gamepad?.getPad(0)?.A);
-    this.gamepadDashWasDown = Boolean(this.scene.input.gamepad?.getPad(0)?.R1);
+    this.inputManager.blockInherited();
   }
 
   update(): void {
@@ -82,40 +60,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     const now = this.scene.time.now;
     const body = this.body as Phaser.Physics.Arcade.Body;
-    const pad = this.scene.input.gamepad?.getPad(0);
-    const axis = pad && Math.abs(pad.leftStick.x) > MOVEMENT.gamepadDeadZone ? pad.leftStick.x : 0;
-
-    const keyboardDirection =
-      (this.controls.left.isDown || this.controls.arrowLeft.isDown ? -1 : 0) +
-      (this.controls.right.isDown || this.controls.arrowRight.isDown ? 1 : 0);
-    const direction = now < this.directionLockedUntil ? 0 : keyboardDirection || axis;
-
-    const gamepadJumpDown = pad?.A ?? false;
-    const gamepadDashDown = (pad?.R1 ?? 0) > 0.5 || (pad?.R2 ?? 0) > 0.5;
-
-    const jumpDown =
-      this.controls.jump.isDown ||
-      this.controls.up.isDown ||
-      this.controls.w.isDown ||
-      gamepadJumpDown;
-
-    const jumpPressed =
-      Phaser.Input.Keyboard.JustDown(this.controls.jump) ||
-      Phaser.Input.Keyboard.JustDown(this.controls.up) ||
-      Phaser.Input.Keyboard.JustDown(this.controls.w) ||
-      (gamepadJumpDown && !this.gamepadJumpWasDown);
-
-    const dashPressed =
-      Phaser.Input.Keyboard.JustDown(this.controls.dash) ||
-      (gamepadDashDown && !this.gamepadDashWasDown);
-
-    const jumpReleased =
-      Phaser.Input.Keyboard.JustUp(this.controls.jump) ||
-      Phaser.Input.Keyboard.JustUp(this.controls.up) ||
-      Phaser.Input.Keyboard.JustUp(this.controls.w) ||
-      (!gamepadJumpDown && this.gamepadJumpWasDown);
-    this.gamepadJumpWasDown = gamepadJumpDown;
-    this.gamepadDashWasDown = gamepadDashDown;
+    const direction = now < this.directionLockedUntil ? 0 : this.inputManager.axisX;
+    const jumpDown = this.inputManager.isDown(InputAction.JUMP);
+    const jumpPressed = this.inputManager.wasPressed(InputAction.JUMP);
+    const dashPressed = this.inputManager.wasPressed(InputAction.DASH);
+    const jumpReleased = this.inputManager.wasReleased(InputAction.JUMP);
 
     const grounded = body.blocked.down || body.touching.down;
     const wall = body.blocked.left || body.blocked.right;

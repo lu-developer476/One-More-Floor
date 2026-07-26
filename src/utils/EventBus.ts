@@ -15,4 +15,11 @@ export const Events = {
   MENU_CONFIRM: 'menu:confirm',
   DOOR_STATE: 'door:state',
   PAUSE_RESTART: 'pause:restart',
+  DEVICE_CHANGED: 'input:device-changed',
+  BINDINGS_CHANGED: 'input:bindings-changed',
+  DIALOG_OPENED: 'dialog:opened',
+  DIALOG_CLOSED: 'dialog:closed',
+  RUN_MODE_CHANGED: 'run:mode-changed',
+  GHOST_CHANGED: 'ghost:changed',
+  ELIGIBILITY_CHANGED: 'run:eligibility-changed',
 } as const;

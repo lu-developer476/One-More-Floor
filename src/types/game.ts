@@ -63,6 +63,10 @@ export interface RankThreshold {
   maxTimeMs: number;
   maxDeaths: number;
 }
+export interface PracticeAnchor extends Point {
+  id: string;
+  name: string;
+}
 export interface LevelDefinition {
   id: string;
   floor: number;
@@ -74,6 +78,7 @@ export interface LevelDefinition {
   accentColor: number;
   backgroundColor: number;
   spawn: Point;
+  practiceAnchors: readonly PracticeAnchor[];
   exit: Point & { label: string };
   platforms: readonly PlatformDefinition[];
   movingPlatforms: readonly MovingPlatformDefinition[];
@@ -100,9 +105,16 @@ export interface HudData {
   attemptMs: number;
   bestTimeMs: number | null;
   ghostActive: boolean;
+  runMode: RunMode;
+  eligibility: string;
+  practiceAnchor: string;
 }
+export type RunMode = 'competitive' | 'practice' | 'assisted';
 export interface LevelSceneData {
   levelIndex?: number;
+  mode?: RunMode;
+  anchorId?: string;
+  allowE2ECompetitive?: boolean;
   deaths?: number;
   totalElapsedMs?: number;
 }
@@ -115,5 +127,7 @@ export interface ResultData {
   final: boolean;
   previousBestMs: number | null;
   ghostSaved: boolean;
+  mode: RunMode;
+  eligibility: import('../runs/RunEligibility').RunEligibility;
   ghostRun: import('../runs/GhostTypes').GhostRun;
 }

@@ -2,8 +2,13 @@ import Phaser from 'phaser';
 import { StorageService, type Settings } from '../services/StorageService';
 import { audioService } from '../services/AudioService';
 import { eventBus, Events } from '../utils/EventBus';
+import { InputManager } from '../input/InputManager';
+import { InputAction } from '../input/InputAction';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
 
-const labels: readonly (keyof Settings | 'reset' | 'clearGhosts' | 'clearRecords' | 'resetProgress' | 'back')[] = [
+const labels: readonly (
+  keyof Settings | 'controls' | 'reset' | 'clearGhosts' | 'clearRecords' | 'resetProgress' | 'back'
+)[] = [
   'volume',
   'mute',
   'screenShake',
@@ -12,6 +17,7 @@ const labels: readonly (keyof Settings | 'reset' | 'clearGhosts' | 'clearRecords
   'highContrast',
   'showGhost',
   'fullscreen',
+  'controls',
   'clearGhosts',
   'clearRecords',
   'resetProgress',
@@ -27,6 +33,7 @@ const names: Record<(typeof labels)[number], string> = {
   highContrast: 'ALTO CONTRASTE',
   showGhost: 'MOSTRAR FANTASMA',
   fullscreen: 'PANTALLA COMPLETA',
+  controls: 'CONTROLES',
   clearGhosts: 'BORRAR FANTASMAS',
   clearRecords: 'BORRAR RÉCORDS',
   resetProgress: 'BORRAR TODO EL PROGRESO',
@@ -39,14 +46,17 @@ export class SettingsScene extends Phaser.Scene {
   private items: Phaser.GameObjects.Text[] = [];
   private service = new StorageService();
   private settings!: Settings;
-  private lastPadY = 0;
-  private lastPadConfirm = false;
+  private manager!: InputManager;
+  private dialog?: ConfirmDialog;
   constructor() {
     super('Settings');
   }
 
   create(): void {
-    this.settings = this.service.load().settings;
+    const save = this.service.load();
+    this.settings = save.settings;
+    this.manager = new InputManager(this, save.input);
+    this.manager.blockInherited();
     this.add.rectangle(480, 270, 700, 500, 0x071018, 0.97).setStrokeStyle(2, 0x5ef1ff);
     this.add
       .text(480, 48, 'AJUSTES', { fontFamily: 'monospace', fontSize: '32px', color: '#5ef1ff' })
@@ -64,12 +74,6 @@ export class SettingsScene extends Phaser.Scene {
       item.on('pointerdown', () => this.change(1));
       return item;
     });
-    this.input.keyboard?.on('keydown-UP', this.previous, this);
-    this.input.keyboard?.on('keydown-DOWN', this.next, this);
-    this.input.keyboard?.on('keydown-LEFT', this.decrease, this);
-    this.input.keyboard?.on('keydown-RIGHT', this.increase, this);
-    this.input.keyboard?.on('keydown-ENTER', this.increase, this);
-    this.input.keyboard?.on('keydown-ESC', this.back, this);
     this.scale.on('enterfullscreen', this.syncFullscreen, this);
     this.scale.on('leavefullscreen', this.syncFullscreen, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
@@ -77,17 +81,20 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   update(): void {
-    const pad = this.input.gamepad?.getPad(0);
-    const y = pad && Math.abs(pad.leftStick.y) > 0.55 ? Math.sign(pad.leftStick.y) : 0;
-    if (y && !this.lastPadY) {
-      if (y > 0) this.next();
-      else this.previous();
+    this.manager.poll();
+    if (this.dialog) {
+      this.dialog.update(this.manager);
+      return;
     }
-    const confirm = Boolean(pad?.A);
-    if (confirm && !this.lastPadConfirm) this.change(1);
-    if (pad?.B) this.back();
-    this.lastPadY = y;
-    this.lastPadConfirm = confirm;
+    if (this.manager.wasPressed(InputAction.MENU_UP)) this.previous();
+    if (this.manager.wasPressed(InputAction.MENU_DOWN)) this.next();
+    if (this.manager.wasPressed(InputAction.MENU_LEFT)) this.decrease();
+    if (
+      this.manager.wasPressed(InputAction.MENU_RIGHT) ||
+      this.manager.wasPressed(InputAction.CONFIRM)
+    )
+      this.increase();
+    if (this.manager.wasPressed(InputAction.BACK)) this.back();
   }
 
   private previous(): void {
@@ -108,7 +115,15 @@ export class SettingsScene extends Phaser.Scene {
     audioService.play('menuMove');
   }
   private value(key: (typeof labels)[number]): string {
-    if (key === 'reset' || key === 'clearGhosts' || key === 'clearRecords' || key === 'resetProgress' || key === 'back') return '';
+    if (
+      key === 'controls' ||
+      key === 'reset' ||
+      key === 'clearGhosts' ||
+      key === 'clearRecords' ||
+      key === 'resetProgress' ||
+      key === 'back'
+    )
+      return '';
     if (key === 'volume') return `${Math.round(this.settings.volume * 100)}%`;
     return this.settings[key] ? 'SÍ' : 'NO';
   }
@@ -125,12 +140,31 @@ export class SettingsScene extends Phaser.Scene {
   private change(direction: number): void {
     const key = labels[this.selected]!;
     if (key === 'back') return this.back();
+    if (key === 'controls') {
+      this.scene.pause();
+      this.scene.launch('Controls');
+      return;
+    }
     if (key === 'clearGhosts' || key === 'clearRecords' || key === 'resetProgress') {
-      if (!window.confirm(`¿CONFIRMAR ${names[key]}?`)) return;
-      if (key === 'clearGhosts') this.service.clearGhosts();
-      else if (key === 'clearRecords') this.service.clearRecords();
-      else { this.service.resetProgress(); this.settings = this.service.load().settings; }
-      this.persist(); return;
+      this.dialog = new ConfirmDialog(
+        this,
+        'CONFIRMAR',
+        names[key],
+        () => {
+          this.dialog = undefined;
+          if (key === 'clearGhosts') this.service.clearGhosts();
+          else if (key === 'clearRecords') this.service.clearRecords();
+          else {
+            this.service.resetProgress();
+            this.settings = this.service.load().settings;
+          }
+          this.persist();
+        },
+        () => {
+          this.dialog = undefined;
+        },
+      );
+      return;
     }
     if (key === 'reset')
       this.settings = new StorageService({
@@ -169,12 +203,6 @@ export class SettingsScene extends Phaser.Scene {
     else if (!this.scene.isActive('Menu')) this.scene.start('Menu');
   }
   private shutdown(): void {
-    this.input.keyboard?.off('keydown-UP', this.previous, this);
-    this.input.keyboard?.off('keydown-DOWN', this.next, this);
-    this.input.keyboard?.off('keydown-LEFT', this.decrease, this);
-    this.input.keyboard?.off('keydown-RIGHT', this.increase, this);
-    this.input.keyboard?.off('keydown-ENTER', this.increase, this);
-    this.input.keyboard?.off('keydown-ESC', this.back, this);
     this.scale.off('enterfullscreen', this.syncFullscreen, this);
     this.scale.off('leavefullscreen', this.syncFullscreen, this);
   }

@@ -12,6 +12,10 @@ import { audioService } from '../services/AudioService';
 import { RunCountdown } from '../systems/RunCountdown';
 import { RunRecorder, visualState } from '../runs/RunRecorder';
 import { GhostPlayer } from '../runs/GhostPlayer';
+import { InputManager } from '../input/InputManager';
+import { InputAction } from '../input/InputAction';
+import { evaluateRunEligibility, type RunEligibility } from '../runs/RunEligibility';
+import type { RunMode } from '../types/game';
 
 const DEATH_FADE_MS = 260;
 const DEATH_RESTART_MS = 480;
@@ -31,7 +35,6 @@ export class LevelScene extends Phaser.Scene {
   private levelIndex = 0;
   private totalElapsedMs = 0;
   private gameplayTimeMs = 0;
-  private lastStart = false;
   private deltaSeconds = 0;
   private countdown!: RunCountdown;
   private recorder!: RunRecorder;
@@ -39,16 +42,34 @@ export class LevelScene extends Phaser.Scene {
   private attemptMs = 0;
   private bestTimeMs: number | null = null;
   private runStarted = false;
+  private inputManager!: InputManager;
+  private mode: RunMode = 'competitive';
+  private anchorId = 'start';
+  private eligibility!: RunEligibility;
+  private allowE2ECompetitive = false;
 
   constructor() {
     super('Level');
   }
-  getRunState(): { countdownFinished: boolean; attemptMs: number; ghostActive: boolean; playerState: string } { return { countdownFinished: this.countdown?.finished ?? false, attemptMs: this.attemptMs, ghostActive: Boolean(this.ghost), playerState: this.player?.states.state ?? 'NONE' }; }
+  getRunState() {
+    return {
+      countdownFinished: this.countdown?.finished ?? false,
+      attemptMs: this.attemptMs,
+      ghostActive: Boolean(this.ghost),
+      playerState: this.player?.states.state ?? 'NONE',
+      mode: this.mode,
+      eligibility: this.eligibility,
+      anchorId: this.anchorId,
+    };
+  }
 
   init(data: LevelSceneData): void {
     this.levelIndex = data.levelIndex ?? 0;
     this.deaths = data.deaths ?? 0;
     this.totalElapsedMs = data.totalElapsedMs ?? 0;
+    this.mode = data.mode ?? 'competitive';
+    this.anchorId = data.anchorId ?? 'start';
+    this.allowE2ECompetitive = data.allowE2ECompetitive ?? false;
   }
 
   create(): void {
@@ -58,7 +79,6 @@ export class LevelScene extends Phaser.Scene {
     this.gameplayTimeMs = 0;
     this.attemptMs = 0;
     this.runStarted = false;
-    this.lastStart = false;
     this.level = new LevelManager().get(this.levelIndex);
     this.physics.world.setBounds(0, 0, this.level.width, this.level.height);
     this.cameras.main
@@ -66,15 +86,28 @@ export class LevelScene extends Phaser.Scene {
       .setBackgroundColor(this.level.backgroundColor);
     this.environment = new EnvironmentSystem(this, this.level);
     this.built = new LevelFactory(this).build(this.level);
-    this.player = new Player(this, this.level.spawn.x, this.level.spawn.y);
     const save = new StorageService().load();
     const settings = save.settings;
+    this.inputManager = new InputManager(this, save.input);
+    this.inputManager.blockInherited();
+    this.eligibility = evaluateRunEligibility({
+      mode: this.mode,
+      startAnchorId: this.anchorId,
+      gameplayAssist: this.mode === 'assisted',
+      e2e: Boolean(import.meta.env.VITE_E2E),
+      allowE2ECompetitive: this.allowE2ECompetitive,
+    });
+    const anchor =
+      this.level.practiceAnchors.find((item) => item.id === this.anchorId) ??
+      this.level.practiceAnchors[0]!;
+    this.player = new Player(this, anchor.x, anchor.y, this.inputManager);
     const record = save.floors[String(this.level.floor)];
     this.bestTimeMs = record?.bestTimeMs ?? null;
     this.recorder = new RunRecorder(this.level.floor);
     this.player.lock();
     this.physics.world.pause();
-    if (settings.showGhost && record?.bestGhost) this.ghost = new GhostPlayer(this, record.bestGhost, 0.28, settings.highContrast);
+    if (settings.showGhost && record?.bestGhost)
+      this.ghost = new GhostPlayer(this, record.bestGhost, 0.28, settings.highContrast);
     audioService.apply(settings);
     this.collapse = new CollapseSystem(this, this.level.durationMs);
     this.bindPhysics();
@@ -84,8 +117,6 @@ export class LevelScene extends Phaser.Scene {
       .setFollowOffset(-90, 18)
       .fadeIn(180);
     this.scene.launch('UI');
-    this.input.keyboard?.on('keydown-R', this.restart, this);
-    this.input.keyboard?.on('keydown-ESC', this.openPause, this);
     this.events.on(Events.PLAYER_DASH, this.dashTrail, this);
     this.events.on(Events.PLAYER_LAND, this.onLand, this);
     this.events.on(Events.PLAYER_WALL_JUMP, this.onWallJump, this);
@@ -94,7 +125,12 @@ export class LevelScene extends Phaser.Scene {
     eventBus.on(Events.SETTINGS_CHANGED, this.applySettings, this);
     eventBus.on(Events.PAUSE_RESTART, this.restart, this);
     this.applySettings(settings);
-    this.countdown = new RunCountdown(this, () => { if (this.dead || this.complete) return; this.runStarted = true; this.physics.world.resume(); this.player.unlock(); });
+    this.countdown = new RunCountdown(this, () => {
+      if (this.dead || this.complete) return;
+      this.runStarted = true;
+      this.physics.world.resume();
+      this.player.unlock();
+    });
     if (import.meta.env.VITE_E2E) {
       this.events.on('e2e:kill', this.die, this);
       this.events.on('e2e:complete', this.e2eComplete, this);
@@ -127,18 +163,26 @@ export class LevelScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    const start = Boolean(this.input.gamepad?.getPad(0)?.buttons[9]?.pressed);
-    if (start && !this.lastStart) this.openPause();
-    this.lastStart = start;
+    this.inputManager.poll();
+    if (this.inputManager.wasPressed(InputAction.PAUSE)) this.openPause();
+    if (this.inputManager.wasPressed(InputAction.RESTART)) this.restart();
     if (this.paused || this.dead || this.complete) return;
 
     const safeDelta = Math.min(Math.max(delta, 0), MAX_FRAME_DELTA_MS);
     this.deltaSeconds = safeDelta / 1000;
-    if (!this.runStarted) { this.emitHud(false); return; }
+    if (!this.runStarted) {
+      this.emitHud(false);
+      return;
+    }
     this.gameplayTimeMs += safeDelta;
     this.attemptMs += safeDelta;
     this.player.update();
-    this.recorder.update(safeDelta, { x: this.player.x, y: this.player.y, facing: this.player.facingDirection, state: visualState(this.player.states.state) });
+    this.recorder.update(safeDelta, {
+      x: this.player.x,
+      y: this.player.y,
+      facing: this.player.facingDirection,
+      state: visualState(this.player.states.state),
+    });
     this.ghost?.update(this.attemptMs);
     for (const moving of this.built.moving) moving.update();
     for (const falling of this.built.falling) falling.update(this.level.height);
@@ -149,7 +193,11 @@ export class LevelScene extends Phaser.Scene {
     this.collapse.update(safeDelta);
     const urgency = 1 - this.collapse.timer.remainingMs / this.level.durationMs;
     this.environment.update(this.cameras.main.scrollX, urgency, this.gameplayTimeMs);
-    if (this.player.y > this.level.height + 50 || this.collapse.timer.expired) this.die();
+    if (
+      this.player.y > this.level.height + 50 ||
+      (this.mode !== 'practice' && this.collapse.timer.expired)
+    )
+      this.die();
     this.emitHud(false);
     this.updateDebugPanel();
   }
@@ -168,6 +216,9 @@ export class LevelScene extends Phaser.Scene {
       attemptMs: this.attemptMs,
       bestTimeMs: this.bestTimeMs,
       ghostActive: Boolean(this.ghost),
+      runMode: this.mode,
+      eligibility: this.eligibility.status,
+      practiceAnchor: this.anchorId,
     });
   }
 
@@ -189,6 +240,9 @@ export class LevelScene extends Phaser.Scene {
         levelIndex: this.levelIndex,
         deaths: this.deaths,
         totalElapsedMs: this.totalElapsedMs,
+        mode: this.mode,
+        anchorId: this.anchorId,
+        allowE2ECompetitive: this.allowE2ECompetitive,
       }),
     );
   }
@@ -216,14 +270,30 @@ export class LevelScene extends Phaser.Scene {
         previousBestMs,
         ghostSaved,
         ghostRun,
+        mode: this.mode,
+        eligibility: this.eligibility,
       });
     });
   }
   private e2eComplete(): void {
-    if (!this.runStarted) { this.runStarted = true; this.physics.world.resume(); this.player.unlock(); }
+    if (!this.runStarted) {
+      this.runStarted = true;
+      this.physics.world.resume();
+      this.player.unlock();
+    }
     this.attemptMs = Math.max(this.attemptMs, 100);
-    this.recorder.update(50, { x: this.player.x, y: this.player.y, facing: this.player.facingDirection, state: visualState(this.player.states.state) });
-    this.recorder.update(50, { x: this.player.x + 1, y: this.player.y, facing: this.player.facingDirection, state: visualState(this.player.states.state) });
+    this.recorder.update(50, {
+      x: this.player.x,
+      y: this.player.y,
+      facing: this.player.facingDirection,
+      state: visualState(this.player.states.state),
+    });
+    this.recorder.update(50, {
+      x: this.player.x + 1,
+      y: this.player.y,
+      facing: this.player.facingDirection,
+      state: visualState(this.player.states.state),
+    });
     this.finish();
   }
 
@@ -269,6 +339,13 @@ export class LevelScene extends Phaser.Scene {
     audioService.apply(settings);
     if (settings.highContrast) this.player.setTint(0xffffff);
     else this.player.clearTint();
+    const record = new StorageService().load().floors[String(this.level.floor)];
+    if (!settings.showGhost) {
+      this.ghost?.destroy();
+      this.ghost = undefined;
+    } else if (!this.ghost && record?.bestGhost)
+      this.ghost = new GhostPlayer(this, record.bestGhost, 0.28, settings.highContrast);
+    this.ghost?.applyAppearance(settings.highContrast);
     for (const platform of this.built.platforms.getChildren()) {
       (platform as Phaser.Physics.Arcade.Sprite).setTint(
         settings.highContrast ? 0xe8f7ff : 0xffffff,
@@ -319,8 +396,6 @@ export class LevelScene extends Phaser.Scene {
   private shutdown(): void {
     this.countdown?.destroy();
     this.ghost?.destroy();
-    this.input.keyboard?.off('keydown-R', this.restart, this);
-    this.input.keyboard?.off('keydown-ESC', this.openPause, this);
     this.events.off(Events.PLAYER_DASH, this.dashTrail, this);
     this.events.off(Events.PLAYER_LAND, this.onLand, this);
     this.events.off(Events.PLAYER_WALL_JUMP, this.onWallJump, this);

@@ -30,6 +30,8 @@ test('keyboard starts the unlocked floor and pause resumes without duplicate HUD
   page,
 }) => {
   await page.keyboard.press('Enter');
+  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('RunSetup'));
+  await page.keyboard.press('Enter');
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Level'));
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Pause'));
@@ -42,7 +44,7 @@ test('keyboard starts the unlocked floor and pause resumes without duplicate HUD
 
 test('mouse selects a floor option', async ({ page }) => {
   await page.mouse.click(480, 190);
-  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Level'));
+  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('RunSetup'));
 });
 
 test('settings change independently and persist after reload', async ({ page }) => {
@@ -113,8 +115,10 @@ test('best completion persists a ghost and repeat creates its visual player', as
 
 test('showGhost false hides replay without deleting it', async ({ page }) => {
   await page.evaluate(() => {
-    const key = 'one-more-floor.save.v4';
-    const save = JSON.parse(localStorage.getItem(key) ?? '{}') as { settings?: { showGhost?: boolean } };
+    const key = 'one-more-floor.save.v5';
+    const save = JSON.parse(localStorage.getItem(key) ?? '{}') as {
+      settings?: { showGhost?: boolean };
+    };
     if (save.settings) save.settings.showGhost = false;
     localStorage.setItem(key, JSON.stringify(save));
     window.__OMF_E2E__?.startFloor(0);
@@ -125,21 +129,41 @@ test('showGhost false hides replay without deleting it', async ({ page }) => {
 
 test('corrupt and wrong-floor ghosts are isolated', async ({ page }) => {
   await page.evaluate(() => {
-    localStorage.setItem('one-more-floor.save.v4', JSON.stringify({ version: 4, unlockedFloor: 2, settings: { showGhost: true }, floors: { '1': { completed: true, bestTimeMs: 100, bestGhost: { version: 1, floor: 2, samples: [] } } } }));
+    localStorage.setItem(
+      'one-more-floor.save.v5',
+      JSON.stringify({
+        version: 5,
+        unlockedFloor: 2,
+        settings: { showGhost: true },
+        floors: {
+          '1': {
+            completed: true,
+            bestTimeMs: 100,
+            bestGhost: { version: 1, floor: 2, samples: [] },
+          },
+        },
+      }),
+    );
     window.__OMF_E2E__?.startFloor(0);
   });
   await page.waitForFunction(() => Boolean(window.__OMF_E2E__?.run()));
   expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.ghostActive)).toBe(false);
 });
 
-test('death and restart discard partial recording without duplicating saved ghost', async ({ page }) => {
+test('death and restart discard partial recording without duplicating saved ghost', async ({
+  page,
+}) => {
   await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
   await page.waitForFunction(() => Boolean(window.__OMF_E2E__?.run()));
   await page.evaluate(() => window.__OMF_E2E__?.killPlayer());
   await page.waitForFunction(() => window.__OMF_E2E__?.run()?.playerState === 'LOCKED');
-  const before = await page.evaluate(() => window.__OMF_E2E__?.save().floors['1']?.bestGhost?.samples.length ?? 0);
+  const before = await page.evaluate(
+    () => window.__OMF_E2E__?.save().floors['1']?.bestGhost?.samples.length ?? 0,
+  );
   await page.keyboard.press('r');
-  const after = await page.evaluate(() => window.__OMF_E2E__?.save().floors['1']?.bestGhost?.samples.length ?? 0);
+  const after = await page.evaluate(
+    () => window.__OMF_E2E__?.save().floors['1']?.bestGhost?.samples.length ?? 0,
+  );
   expect(after).toBe(before);
 });
 
@@ -151,4 +175,25 @@ test('pause freezes the gameplay clock and ghost', async ({ page }) => {
   const before = await page.evaluate(() => window.__OMF_E2E__?.run()?.attemptMs);
   await page.waitForTimeout(100);
   expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.attemptMs)).toBe(before);
+});
+
+test('practice anchor survives death and completion does not save PB', async ({ page }) => {
+  await page.evaluate(() => window.__OMF_E2E__?.startPractice(1, 'core'));
+  await page.waitForFunction(() => window.__OMF_E2E__?.getRunMode() === 'practice');
+  expect(await page.evaluate(() => window.__OMF_E2E__?.getPracticeAnchor())).toBe('core');
+  await page.evaluate(() => window.__OMF_E2E__?.killPlayer());
+  await page.waitForFunction(() => window.__OMF_E2E__?.getPracticeAnchor() === 'core');
+  await page.evaluate(() => window.__OMF_E2E__?.completeFloor());
+  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Results'));
+  expect(
+    await page.evaluate(() => window.__OMF_E2E__?.save().floors['1']?.bestTimeMs ?? null),
+  ).toBeNull();
+});
+
+test('binding persists after reload', async ({ page }) => {
+  await page.evaluate(() => window.__OMF_E2E__?.setBinding('JUMP', 'KeyQ'));
+  expect(await page.evaluate(() => window.__OMF_E2E__?.getBindings().keyboard.JUMP)).toBe('KeyQ');
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__OMF_E2E__));
+  expect(await page.evaluate(() => window.__OMF_E2E__?.getBindings().keyboard.JUMP)).toBe('KeyQ');
 });
