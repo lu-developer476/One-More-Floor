@@ -1,4 +1,4 @@
-# One More Floor v0.2.0
+# One More Floor v0.3.0
 
 Vertical slice 2D de plataformas de precisión construida con Phaser 3, TypeScript estricto y Vite. Escapá de cinco pisos breves de una instalación industrial antes del colapso.
 
@@ -8,7 +8,7 @@ Vertical slice 2D de plataformas de precisión construida con Phaser 3, TypeScri
 
 ## Estado y características
 
-La versión `0.2.0` incluye cinco pisos basados en datos, reinicio de muerte menor a 800 ms, menú y selección desbloqueable, resultados/rangos por piso, HUD, pausa, persistencia validada y controles de teclado/gamepad. Toda la presentación usa texturas y formas generadas localmente; no descarga assets.
+La versión `0.3.0` incluye cinco pisos basados en datos, reinicio de muerte menor a 800 ms, menú y selección desbloqueable, resultados/rangos por piso, HUD, pausa, persistencia validada y controles de teclado/gamepad. Toda la presentación usa texturas y formas generadas localmente; no descarga assets.
 
 | Piso | Identidad | Mecánicas principales |
 |---|---|---|
@@ -68,9 +68,17 @@ Publish Directory: dist
 
 Vite usa una base relativa y no requiere servidor, `PORT`, backend ni servicios externos.
 
+## Playtesting y estabilidad
+
+La pasada 0.3.0 corrige el dash previamente limitado por la velocidad máxima de carrera, hace que el salto corto se aplique una sola vez al soltar el botón y normaliza el deadzone de gamepad. Las plataformas móviles invierten su recorrido en extremos exactos y las hitboxes de pinchos son más pequeñas que su silueta visible para priorizar contactos justos. Cada piso declara su tiempo objetivo/rango S y su tiempo máximo de manera independiente.
+
+Los hazards temporizados ahora usan tiempo efectivo de juego: pausa, frames largos y reanudación no adelantan ciclos ni el temporizador. El reinicio protege la secuencia de muerte contra ejecuciones duplicadas, limpia listeners de escena y mantiene una única instancia de HUD. `?debug` muestra hitboxes, FPS, estado, posición, velocidad, contacto, dash, piso, reloj y objetos activos aproximados. La persistencia v3 valida datos corruptos y migra guardados v1/v2; los ajustes de reducción de shake/flashes siguen aplicándose inmediatamente.
+
+La validación automatizada cubre configuración, ranking, temporizador, hazards temporizados, estados, progresión y migraciones. Se revisó el ciclo local de carga y reinicio; el playtesting humano exhaustivo con hardware gamepad diverso y el perfil de memoria/draw calls en equipos de gama baja continúan siendo limitaciones conocidas, no garantías de esta versión.
+
 ## Limitaciones y roadmap
 
-- El balance de 20–60 segundos es un objetivo de diseño y requiere playtesting con jugadores.
+- Los tiempos por piso son objetivos de balance y todavía requieren playtesting con una muestra externa de jugadores.
 - El audio procedural está implementado como servicio, pero su integración completa con cada evento queda para una siguiente iteración.
 - El menú de ajustes usa presets; todavía no ofrece sliders ni remapeo arbitrario.
 - Las puertas poseen definición tipada, pero la interacción temporizada visual completa queda pendiente.
