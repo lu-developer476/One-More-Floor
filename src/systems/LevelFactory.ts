@@ -24,6 +24,7 @@ export interface BuiltLevel {
 }
 
 export class TimedZone {
+  readonly id: string;
   readonly zone: Phaser.GameObjects.Zone;
   private readonly visual: Phaser.GameObjects.Rectangle;
   constructor(
@@ -31,6 +32,7 @@ export class TimedZone {
     private readonly definition: TimedHazardDefinition,
     color: number,
   ) {
+    this.id = definition.id ?? 'electricity-unknown';
     this.visual = scene.add
       .rectangle(definition.x, definition.y, definition.width, definition.height ?? 30, color, 0.15)
       .setDepth(10);

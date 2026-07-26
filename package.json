@@ -1,6 +1,6 @@
 {
   "name": "one-more-floor",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -b --pretty false",
     "check:text-only": "node scripts/check-text-only.mjs",
-    "validate": "npm run check:text-only && npm run typecheck && npm run lint && npm run test && npm run build",
+    "check:levels": "node scripts/check-levels.mjs",
+    "validate": "npm run check:text-only && npm run check:levels && npm run typecheck && npm run lint && npm run test && npm run build",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
   },

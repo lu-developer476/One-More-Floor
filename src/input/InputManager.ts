@@ -19,6 +19,11 @@ export class InputState {
   private pressed = new Set<Action>();
   private released = new Set<Action>();
   private blockedUntilRelease = new Set<Action>();
+  private readonly next = new Set<Action>();
+  private axisLatchX = 0;
+  private axisLatchY = 0;
+  private static readonly emptyKeys: ReadonlySet<string> = new Set();
+  private static readonly emptyButtons: ReadonlySet<number> = new Set();
   activeDevice: InputDevice = 'keyboard';
   axisX = 0;
   axisY = 0;
@@ -28,9 +33,12 @@ export class InputState {
   }
   update(input: PhysicalInput): void {
     const previous = this.down;
-    const next = new Set<Action>();
-    const keys = input.keys ?? new Set<string>();
-    const buttons = input.buttons ?? new Set<number>();
+    const next = this.next;
+    next.clear();
+    this.pressed.clear();
+    this.released.clear();
+    const keys = input.keys ?? InputState.emptyKeys;
+    const buttons = input.buttons ?? InputState.emptyButtons;
     const x = this.axis(input.axisX ?? 0),
       y = this.axis(input.axisY ?? 0);
     if (keys.size) {
@@ -41,23 +49,32 @@ export class InputState {
     for (const action of INPUT_ACTIONS)
       if (keys.has(this.settings.keyboard[action]) || buttons.has(this.settings.gamepad[action]))
         next.add(action);
-    if (x <= -0.5) next.add(InputAction.MOVE_LEFT);
-    if (x >= 0.5) next.add(InputAction.MOVE_RIGHT);
-    if (y <= -0.5) next.add(InputAction.MENU_UP);
-    if (y >= 0.5) next.add(InputAction.MENU_DOWN);
-    this.pressed = new Set();
-    this.released = new Set();
+    this.axisLatchX = this.latch(x, this.axisLatchX);
+    this.axisLatchY = this.latch(y, this.axisLatchY);
+    if (this.axisLatchX < 0) next.add(InputAction.MOVE_LEFT);
+    if (this.axisLatchX > 0) next.add(InputAction.MOVE_RIGHT);
+    if (this.axisLatchY < 0) next.add(InputAction.MENU_UP);
+    if (this.axisLatchY > 0) next.add(InputAction.MENU_DOWN);
     for (const action of INPUT_ACTIONS) {
       if (next.has(action) && !previous.has(action) && !this.blockedUntilRelease.has(action))
         this.pressed.add(action);
       if (!next.has(action) && previous.has(action)) this.released.add(action);
       if (!next.has(action)) this.blockedUntilRelease.delete(action);
     }
-    this.down = next;
+    previous.clear();
+    for (const action of next) previous.add(action);
     this.axisX =
       x || (next.has(InputAction.MOVE_RIGHT) ? 1 : 0) - (next.has(InputAction.MOVE_LEFT) ? 1 : 0);
     this.axisY =
       y || (next.has(InputAction.MENU_DOWN) ? 1 : 0) - (next.has(InputAction.MENU_UP) ? 1 : 0);
+  }
+  private latch(value: number, current: number): number {
+    if (current !== 0) {
+      if (Math.sign(value) !== current && Math.abs(value) >= 0.55) return Math.sign(value);
+      if (Math.abs(value) <= Math.max(this.settings.deadZone, 0.35)) return 0;
+      return current;
+    }
+    return Math.abs(value) >= Math.max(this.settings.deadZone, 0.55) ? Math.sign(value) : 0;
   }
   private axis(value: number): number {
     return Math.abs(value) < this.settings.deadZone ? 0 : Math.max(-1, Math.min(1, value));
@@ -74,6 +91,8 @@ export class InputState {
 }
 export class InputManager extends InputState {
   private keys = new Map<string, Phaser.Input.Keyboard.Key>();
+  private readonly keySet = new Set<string>();
+  private readonly buttonSet = new Set<number>();
   constructor(
     private scene: Phaser.Scene,
     settings: InputSettings,
@@ -83,16 +102,16 @@ export class InputManager extends InputState {
       this.keys.set(code, scene.input.keyboard!.addKey(code));
   }
   poll(): void {
-    const keySet = new Set<string>();
-    for (const [code, key] of this.keys) if (key.isDown) keySet.add(code);
+    this.keySet.clear();
+    for (const [code, key] of this.keys) if (key.isDown) this.keySet.add(code);
     const pad = this.scene.input.gamepad?.getPad(0);
-    const buttons = new Set<number>();
+    this.buttonSet.clear();
     pad?.buttons.forEach((b, i) => {
-      if (b.pressed) buttons.add(i);
+      if (b.pressed) this.buttonSet.add(i);
     });
     this.update({
-      keys: keySet,
-      buttons,
+      keys: this.keySet,
+      buttons: this.buttonSet,
       axisX: pad?.leftStick.x,
       axisY: pad?.leftStick.y,
       gamepadConnected: Boolean(pad),

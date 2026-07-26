@@ -5,9 +5,17 @@ import { eventBus, Events } from '../utils/EventBus';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { LocalAnalyticsService } from '../analytics/LocalAnalyticsService';
 
 const labels: readonly (
-  keyof Settings | 'controls' | 'reset' | 'clearGhosts' | 'clearRecords' | 'resetProgress' | 'back'
+  | keyof Settings
+  | 'controls'
+  | 'reset'
+  | 'clearGhosts'
+  | 'clearRecords'
+  | 'clearAnalytics'
+  | 'resetProgress'
+  | 'back'
 )[] = [
   'volume',
   'mute',
@@ -16,10 +24,12 @@ const labels: readonly (
   'reduceFlashes',
   'highContrast',
   'showGhost',
+  'localAnalyticsEnabled',
   'fullscreen',
   'controls',
   'clearGhosts',
   'clearRecords',
+  'clearAnalytics',
   'resetProgress',
   'reset',
   'back',
@@ -32,10 +42,12 @@ const names: Record<(typeof labels)[number], string> = {
   reduceFlashes: 'REDUCIR FLASHES',
   highContrast: 'ALTO CONTRASTE',
   showGhost: 'MOSTRAR FANTASMA',
+  localAnalyticsEnabled: 'ESTADÍSTICAS LOCALES',
   fullscreen: 'PANTALLA COMPLETA',
   controls: 'CONTROLES',
   clearGhosts: 'BORRAR FANTASMAS',
   clearRecords: 'BORRAR RÉCORDS',
+  clearAnalytics: 'BORRAR ESTADÍSTICAS LOCALES',
   resetProgress: 'BORRAR TODO EL PROGRESO',
   reset: 'RESTAURAR PREDETERMINADOS',
   back: 'VOLVER',
@@ -120,6 +132,7 @@ export class SettingsScene extends Phaser.Scene {
       key === 'reset' ||
       key === 'clearGhosts' ||
       key === 'clearRecords' ||
+      key === 'clearAnalytics' ||
       key === 'resetProgress' ||
       key === 'back'
     )
@@ -145,7 +158,12 @@ export class SettingsScene extends Phaser.Scene {
       this.scene.launch('Controls');
       return;
     }
-    if (key === 'clearGhosts' || key === 'clearRecords' || key === 'resetProgress') {
+    if (
+      key === 'clearGhosts' ||
+      key === 'clearRecords' ||
+      key === 'clearAnalytics' ||
+      key === 'resetProgress'
+    ) {
       this.dialog = new ConfirmDialog(
         this,
         'CONFIRMAR',
@@ -154,6 +172,7 @@ export class SettingsScene extends Phaser.Scene {
           this.dialog = undefined;
           if (key === 'clearGhosts') this.service.clearGhosts();
           else if (key === 'clearRecords') this.service.clearRecords();
+          else if (key === 'clearAnalytics') new LocalAnalyticsService().clear();
           else {
             this.service.resetProgress();
             this.settings = this.service.load().settings;

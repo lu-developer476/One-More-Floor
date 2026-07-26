@@ -10,12 +10,11 @@ import { StorageService, type Settings } from '../services/StorageService';
 import { TOTAL_FLOORS } from '../config/levelConfig';
 import { audioService } from '../services/AudioService';
 import { RunCountdown } from '../systems/RunCountdown';
-import { RunRecorder, visualState } from '../runs/RunRecorder';
+import { visualState } from '../runs/RunRecorder';
+import { AttemptSession, type DeathCause, type RunContext } from '../runs/AttemptSession';
 import { GhostPlayer } from '../runs/GhostPlayer';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
-import { evaluateRunEligibility, type RunEligibility } from '../runs/RunEligibility';
-import type { RunMode } from '../types/game';
 
 const DEATH_FADE_MS = 260;
 const DEATH_RESTART_MS = 480;
@@ -37,16 +36,11 @@ export class LevelScene extends Phaser.Scene {
   private gameplayTimeMs = 0;
   private deltaSeconds = 0;
   private countdown!: RunCountdown;
-  private recorder!: RunRecorder;
   private ghost?: GhostPlayer;
-  private attemptMs = 0;
   private bestTimeMs: number | null = null;
-  private runStarted = false;
   private inputManager!: InputManager;
-  private mode: RunMode = 'competitive';
-  private anchorId = 'start';
-  private eligibility!: RunEligibility;
-  private allowE2ECompetitive = false;
+  private session!: AttemptSession;
+  private context!: RunContext;
 
   constructor() {
     super('Level');
@@ -54,22 +48,27 @@ export class LevelScene extends Phaser.Scene {
   getRunState() {
     return {
       countdownFinished: this.countdown?.finished ?? false,
-      attemptMs: this.attemptMs,
+      attemptMs: this.session.attemptMs,
       ghostActive: Boolean(this.ghost),
       playerState: this.player?.states.state ?? 'NONE',
-      mode: this.mode,
-      eligibility: this.eligibility,
-      anchorId: this.anchorId,
+      mode: this.session.context.mode,
+      eligibility: this.session.eligibility,
+      anchorId: this.session.context.anchorId,
     };
   }
 
   init(data: LevelSceneData): void {
-    this.levelIndex = data.levelIndex ?? 0;
+    const levelIndex = data.levelIndex ?? 0;
+    this.levelIndex = levelIndex;
     this.deaths = data.deaths ?? 0;
     this.totalElapsedMs = data.totalElapsedMs ?? 0;
-    this.mode = data.mode ?? 'competitive';
-    this.anchorId = data.anchorId ?? 'start';
-    this.allowE2ECompetitive = data.allowE2ECompetitive ?? false;
+    this.context = Object.freeze({
+      levelIndex,
+      mode: data.mode ?? 'competitive',
+      anchorId: data.anchorId ?? 'floor01-anchor-start',
+      gameplayAssist: data.gameplayAssist ?? data.mode === 'assisted',
+      allowE2ECompetitive: data.allowE2ECompetitive ?? false,
+    });
   }
 
   create(): void {
@@ -77,8 +76,6 @@ export class LevelScene extends Phaser.Scene {
     this.complete = false;
     this.paused = false;
     this.gameplayTimeMs = 0;
-    this.attemptMs = 0;
-    this.runStarted = false;
     this.level = new LevelManager().get(this.levelIndex);
     this.physics.world.setBounds(0, 0, this.level.width, this.level.height);
     this.cameras.main
@@ -90,20 +87,20 @@ export class LevelScene extends Phaser.Scene {
     const settings = save.settings;
     this.inputManager = new InputManager(this, save.input);
     this.inputManager.blockInherited();
-    this.eligibility = evaluateRunEligibility({
-      mode: this.mode,
-      startAnchorId: this.anchorId,
-      gameplayAssist: this.mode === 'assisted',
-      e2e: Boolean(import.meta.env.VITE_E2E),
-      allowE2ECompetitive: this.allowE2ECompetitive,
-    });
+
     const anchor =
-      this.level.practiceAnchors.find((item) => item.id === this.anchorId) ??
+      this.level.practiceAnchors.find((item) => item.id === this.context.anchorId) ??
       this.level.practiceAnchors[0]!;
     this.player = new Player(this, anchor.x, anchor.y, this.inputManager);
     const record = save.floors[String(this.level.floor)];
     this.bestTimeMs = record?.bestTimeMs ?? null;
-    this.recorder = new RunRecorder(this.level.floor);
+    this.session = new AttemptSession(
+      this.context,
+      this.level.floor,
+      this.level.splits,
+      anchor.startingSplitId,
+      Boolean(import.meta.env.VITE_E2E),
+    );
     this.player.lock();
     this.physics.world.pause();
     if (settings.showGhost && record?.bestGhost)
@@ -127,7 +124,7 @@ export class LevelScene extends Phaser.Scene {
     this.applySettings(settings);
     this.countdown = new RunCountdown(this, () => {
       if (this.dead || this.complete) return;
-      this.runStarted = true;
+      this.session.start();
       this.physics.world.resume();
       this.player.unlock();
     });
@@ -144,11 +141,17 @@ export class LevelScene extends Phaser.Scene {
     for (const moving of this.built.moving) this.physics.add.collider(this.player, moving);
     for (const falling of this.built.falling)
       this.physics.add.collider(this.player, falling, () => falling.trigger());
-    this.physics.add.overlap(this.player, this.built.hazards, () => this.die());
+    this.physics.add.overlap(this.player, this.built.hazards, () =>
+      this.die({ cause: 'spikes', sourceId: 'level-spikes' }),
+    );
     for (const laser of this.built.lasers)
-      this.physics.add.overlap(this.player, laser.hitbox, () => this.die());
+      this.physics.add.overlap(this.player, laser.hitbox, () =>
+        this.die({ cause: 'laser', sourceId: laser.id }),
+      );
     for (const timed of this.built.timedZones)
-      this.physics.add.overlap(this.player, timed.zone, () => this.die());
+      this.physics.add.overlap(this.player, timed.zone, () =>
+        this.die({ cause: 'electricity', sourceId: timed.id }),
+      );
     for (const fan of this.built.forceZones)
       this.physics.add.overlap(this.player, fan.zone, () =>
         fan.applyToPlayer(this.player, this.deltaSeconds),
@@ -170,20 +173,19 @@ export class LevelScene extends Phaser.Scene {
 
     const safeDelta = Math.min(Math.max(delta, 0), MAX_FRAME_DELTA_MS);
     this.deltaSeconds = safeDelta / 1000;
-    if (!this.runStarted) {
+    if (!this.session.started) {
       this.emitHud(false);
       return;
     }
     this.gameplayTimeMs += safeDelta;
-    this.attemptMs += safeDelta;
     this.player.update();
-    this.recorder.update(safeDelta, {
+    this.session.update(safeDelta, {
       x: this.player.x,
       y: this.player.y,
       facing: this.player.facingDirection,
       state: visualState(this.player.states.state),
     });
-    this.ghost?.update(this.attemptMs);
+    this.ghost?.update(this.session.attemptMs);
     for (const moving of this.built.moving) moving.update();
     for (const falling of this.built.falling) falling.update(this.level.height);
     for (const laser of this.built.lasers) laser.update(this.gameplayTimeMs);
@@ -195,9 +197,13 @@ export class LevelScene extends Phaser.Scene {
     this.environment.update(this.cameras.main.scrollX, urgency, this.gameplayTimeMs);
     if (
       this.player.y > this.level.height + 50 ||
-      (this.mode !== 'practice' && this.collapse.timer.expired)
+      (this.session.context.mode !== 'practice' && this.collapse.timer.expired)
     )
-      this.die();
+      this.die({
+        cause: this.player.y > this.level.height + 50 ? 'fall' : 'collapse',
+        sourceId:
+          this.player.y > this.level.height + 50 ? 'world-bottom' : `${this.level.id}-collapse`,
+      });
     this.emitHud(false);
     this.updateDebugPanel();
   }
@@ -213,19 +219,22 @@ export class LevelScene extends Phaser.Scene {
       dashReady: this.player.dashAvailable,
       paused,
       progress: this.player.x / this.level.width,
-      attemptMs: this.attemptMs,
+      attemptMs: this.session.attemptMs,
       bestTimeMs: this.bestTimeMs,
       ghostActive: Boolean(this.ghost),
-      runMode: this.mode,
-      eligibility: this.eligibility.status,
-      practiceAnchor: this.anchorId,
+      runMode: this.session.context.mode,
+      eligibility: this.session.eligibility.status,
+      practiceAnchor: this.session.context.anchorId,
     });
   }
 
-  private die(): void {
+  private die(
+    details: { cause: DeathCause; sourceId: string } = { cause: 'unknown', sourceId: 'unknown' },
+  ): void {
     if (this.dead || this.complete) return;
     this.dead = true;
-    this.recorder.reset();
+    this.session.recordDeath(details.cause, details.sourceId);
+    this.session.discard();
     this.deaths += 1;
     this.player.kill();
     audioService.play('death', 300);
@@ -237,12 +246,9 @@ export class LevelScene extends Phaser.Scene {
     this.time.delayedCall(80, () => this.cameras.main.fadeOut(DEATH_FADE_MS));
     this.time.delayedCall(DEATH_RESTART_MS, () =>
       this.scene.restart({
-        levelIndex: this.levelIndex,
         deaths: this.deaths,
         totalElapsedMs: this.totalElapsedMs,
-        mode: this.mode,
-        anchorId: this.anchorId,
-        allowE2ECompetitive: this.allowE2ECompetitive,
+        ...this.session.restartData(),
       }),
     );
   }
@@ -253,9 +259,9 @@ export class LevelScene extends Phaser.Scene {
     this.player.lock();
     audioService.play('elevator', 300);
     this.collapse.stop();
-    const elapsed = Math.round(this.attemptMs);
+    const elapsed = Math.round(this.session.attemptMs);
     const previousBestMs = this.bestTimeMs;
-    const ghostRun = this.recorder.finish(elapsed);
+    const ghostRun = this.session.recorder.finish(elapsed);
     const ghostSaved = previousBestMs === null || elapsed < previousBestMs;
     this.cameras.main.zoomTo(1.025, 180);
     this.time.delayedCall(260, () => {
@@ -270,25 +276,25 @@ export class LevelScene extends Phaser.Scene {
         previousBestMs,
         ghostSaved,
         ghostRun,
-        mode: this.mode,
-        eligibility: this.eligibility,
+        mode: this.session.context.mode,
+        eligibility: this.session.eligibility,
+        context: this.session.context,
       });
     });
   }
   private e2eComplete(): void {
-    if (!this.runStarted) {
-      this.runStarted = true;
+    if (!this.session.started) {
+      this.session.start();
       this.physics.world.resume();
       this.player.unlock();
     }
-    this.attemptMs = Math.max(this.attemptMs, 100);
-    this.recorder.update(50, {
+    this.session.recorder.update(50, {
       x: this.player.x,
       y: this.player.y,
       facing: this.player.facingDirection,
       state: visualState(this.player.states.state),
     });
-    this.recorder.update(50, {
+    this.session.recorder.update(50, {
       x: this.player.x + 1,
       y: this.player.y,
       facing: this.player.facingDirection,
@@ -300,7 +306,7 @@ export class LevelScene extends Phaser.Scene {
   private restart(): void {
     if (this.dead || this.complete) return;
     this.scene.restart({
-      levelIndex: this.levelIndex,
+      ...this.session.restartData(),
       deaths: this.deaths,
       totalElapsedMs: this.totalElapsedMs,
     });

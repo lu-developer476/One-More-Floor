@@ -54,7 +54,7 @@ export class RunSetupScene extends Phaser.Scene {
       this.scene.start('Level', {
         levelIndex: this.floor,
         mode: this.mode ? 'practice' : 'competitive',
-        anchorId: this.mode ? level.practiceAnchors[this.anchor]!.id : 'start',
+        anchorId: this.mode ? level.practiceAnchors[this.anchor]!.id : level.practiceAnchors[0]!.id,
       });
     }
     this.render();
