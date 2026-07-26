@@ -1,7 +1,2 @@
-import { PlayerState } from '../types/game';
-export class PlayerStateMachine {
-  private current: PlayerState = PlayerState.IDLE;
-  get state(): PlayerState { return this.current; }
-  transition(next: PlayerState): void { if (this.current !== PlayerState.DEAD) this.current = next; }
-  kill(): void { this.current = PlayerState.DEAD; }
-}
+import {PlayerState} from '../types/game';
+export class PlayerStateMachine{private current:PlayerState=PlayerState.IDLE;get state():PlayerState{return this.current;}transition(next:PlayerState):boolean{if(this.current===PlayerState.DEAD||this.current===PlayerState.LOCKED)return false;if(this.current===next)return false;this.current=next;return true;}lock():void{this.current=PlayerState.LOCKED;}unlock():void{if(this.current===PlayerState.LOCKED)this.current=PlayerState.IDLE;}kill():void{this.current=PlayerState.DEAD;}}

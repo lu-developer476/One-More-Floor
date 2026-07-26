@@ -11,7 +11,7 @@ export class EnvironmentSystem {
   private readonly smoke: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor(
-    private readonly scene: Phaser.Scene,
+    scene: Phaser.Scene,
     private readonly level: LevelDefinition,
   ) {
     scene.add
