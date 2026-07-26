@@ -1,0 +1,3 @@
+import { describe,expect,it } from 'vitest';import { StorageService } from './StorageService';
+class MemoryStorage {value:string|null=null;getItem(){return this.value;}setItem(_key:string,value:string){this.value=value;}}
+describe('StorageService',()=>{it('uses safe defaults for malformed data',()=>{const memory=new MemoryStorage();memory.value='{';expect(new StorageService(memory).load().volume).toBe(.7);});it('keeps best statistics',()=>{const service=new StorageService(new MemoryStorage());service.recordResult(2000,3);const result=service.recordResult(3000,1);expect(result.bestTimeMs).toBe(2000);expect(result.fewestDeaths).toBe(1);});});
