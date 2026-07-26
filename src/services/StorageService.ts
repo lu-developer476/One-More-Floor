@@ -1,28 +1,10 @@
-export interface SaveData { bestTimeMs: number | null; fewestDeaths: number | null; volume: number; fullscreen: boolean }
-const KEY = 'one-more-floor.save.v1';
-const defaults = (): SaveData => ({ bestTimeMs: null, fewestDeaths: null, volume: 0.7, fullscreen: false });
-export class StorageService {
-  constructor(private readonly storage: Pick<Storage, 'getItem'|'setItem'> | null = typeof localStorage === 'undefined' ? null : localStorage) {}
-  load(): SaveData {
-    if (!this.storage) return defaults();
-    try {
-      const value: unknown = JSON.parse(this.storage.getItem(KEY) ?? 'null');
-      if (!value || typeof value !== 'object') return defaults();
-      const raw = value as Record<string, unknown>;
-      return {
-        bestTimeMs: validPositive(raw.bestTimeMs), fewestDeaths: validNonNegative(raw.fewestDeaths),
-        volume: typeof raw.volume === 'number' && raw.volume >= 0 && raw.volume <= 1 ? raw.volume : 0.7,
-        fullscreen: typeof raw.fullscreen === 'boolean' ? raw.fullscreen : false,
-      };
-    } catch { return defaults(); }
-  }
-  save(data: SaveData): void { try { this.storage?.setItem(KEY, JSON.stringify(data)); } catch { /* Storage can be unavailable. */ } }
-  recordResult(elapsedMs: number, deaths: number): SaveData {
-    const data = this.load();
-    data.bestTimeMs = data.bestTimeMs === null ? elapsedMs : Math.min(data.bestTimeMs, elapsedMs);
-    data.fewestDeaths = data.fewestDeaths === null ? deaths : Math.min(data.fewestDeaths, deaths);
-    this.save(data); return data;
-  }
-}
-const validPositive = (v: unknown): number|null => typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
-const validNonNegative = (v: unknown): number|null => typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : null;
+import type {Rank} from '../types/game';
+export interface FloorRecord{completed:boolean;bestTimeMs:number|null;fewestDeaths:number|null;rank:Rank|null}
+export interface Settings{volume:number;mute:boolean;screenShake:boolean;reducedShake:boolean;reduceFlashes:boolean;highContrast:boolean;fullscreen:boolean}
+export interface SaveData{version:2;unlockedFloor:number;floors:Record<string,FloorRecord>;settings:Settings}
+const KEY='one-more-floor.save.v2';const LEGACY='one-more-floor.save.v1';const settings=():Settings=>({volume:.7,mute:false,screenShake:true,reducedShake:false,reduceFlashes:false,highContrast:false,fullscreen:false});const defaults=():SaveData=>({version:2,unlockedFloor:1,floors:{},settings:settings()});
+type Store=Pick<Storage,'getItem'|'setItem'>;export class StorageService{constructor(private readonly storage:Store|null=typeof localStorage==='undefined'?null:localStorage){}load():SaveData{if(!this.storage)return defaults();try{const current:unknown=JSON.parse(this.storage.getItem(KEY)??'null');if(current&&typeof current==='object')return validate(current as Record<string,unknown>);const old:unknown=JSON.parse(this.storage.getItem(LEGACY)??'null');return migrate(old);}catch{return defaults();}}save(data:SaveData):void{try{this.storage?.setItem(KEY,JSON.stringify(validate(data as unknown as Record<string,unknown>)));}catch{/* private browsing can reject storage */}}recordFloor(floor:number,time:number,deaths:number,rank:Rank):SaveData{const data=this.load();const key=String(floor);const old=data.floors[key];data.floors[key]={completed:true,bestTimeMs:old?.bestTimeMs==null?time:Math.min(old.bestTimeMs,time),fewestDeaths:old?.fewestDeaths==null?deaths:Math.min(old.fewestDeaths,deaths),rank:better(old?.rank??null,rank)};data.unlockedFloor=Math.min(5,Math.max(data.unlockedFloor,floor+1));this.save(data);return data;}
+recordResult(time:number,deaths:number):{bestTimeMs:number|null;fewestDeaths:number|null}{const data=this.recordFloor(1,time,deaths,'C');const r=data.floors['1'];return{bestTimeMs:r?.bestTimeMs??null,fewestDeaths:r?.fewestDeaths??null};}}
+const finite=(v:unknown,min:number,max=Infinity):number|null=>typeof v==='number'&&Number.isFinite(v)&&v>=min&&v<=max?v:null;const rank=(v:unknown):Rank|null=>v==='S'||v==='A'||v==='B'||v==='C'?v:null;
+const validate=(raw:Record<string,unknown>):SaveData=>{const result=defaults();result.unlockedFloor=Math.floor(finite(raw.unlockedFloor,1,5)??1);const s=raw.settings&&typeof raw.settings==='object'?raw.settings as Record<string,unknown>:{};result.settings={volume:finite(s.volume,0,1)??.7,mute:typeof s.mute==='boolean'?s.mute:false,screenShake:typeof s.screenShake==='boolean'?s.screenShake:true,reducedShake:typeof s.reducedShake==='boolean'?s.reducedShake:false,reduceFlashes:typeof s.reduceFlashes==='boolean'?s.reduceFlashes:false,highContrast:typeof s.highContrast==='boolean'?s.highContrast:false,fullscreen:typeof s.fullscreen==='boolean'?s.fullscreen:false};if(raw.floors&&typeof raw.floors==='object')for(const [key,value] of Object.entries(raw.floors as Record<string,unknown>)){if(!/^[1-5]$/.test(key)||!value||typeof value!=='object')continue;const r=value as Record<string,unknown>;result.floors[key]={completed:r.completed===true,bestTimeMs:finite(r.bestTimeMs,1),fewestDeaths:finite(r.fewestDeaths,0),rank:rank(r.rank)};}return result;};
+const migrate=(old:unknown):SaveData=>{const data=defaults();if(!old||typeof old!=='object')return data;const r=old as Record<string,unknown>;data.settings.volume=finite(r.volume,0,1)??.7;data.settings.fullscreen=r.fullscreen===true;const time=finite(r.bestTimeMs,1),deaths=finite(r.fewestDeaths,0);if(time!==null||deaths!==null)data.floors['1']={completed:true,bestTimeMs:time,fewestDeaths:deaths,rank:null};return data;};const better=(a:Rank|null,b:Rank):Rank=>{const order:Rank[]=['S','A','B','C'];return a&&order.indexOf(a)<order.indexOf(b)?a:b;};

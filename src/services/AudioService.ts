@@ -1,8 +1,3 @@
-import Phaser from 'phaser';
-export class AudioService {
-  constructor(private readonly scene: Phaser.Scene, volume = 0.7) { this.scene.sound.volume = volume; }
-  setVolume(value: number): void { this.scene.sound.volume = Phaser.Math.Clamp(value, 0, 1); }
-  toggleMute(): boolean { this.scene.sound.mute = !this.scene.sound.mute; return this.scene.sound.mute; }
-  playEffect(key: string): void { if (this.scene.cache.audio.exists(key)) this.scene.sound.play(key); }
-  playMusic(key: string): void { if (this.scene.cache.audio.exists(key)) this.scene.sound.play(key, { loop: true }); }
-}
+export type Effect='jump'|'land'|'dash'|'wallJump'|'death'|'elevator'|'laser'|'electricity'|'break'|'countdown'|'complete';
+const tones:Record<Effect,number>={jump:440,land:110,dash:220,wallJump:520,death:70,elevator:330,laser:760,electricity:620,break:95,countdown:280,complete:660};
+export class AudioService{private context:AudioContext|null=null;constructor(private volume=.7,private muted=false){}unlock():void{this.context??=new AudioContext();void this.context.resume();}setVolume(value:number):void{this.volume=Math.max(0,Math.min(1,value));}setMuted(value:boolean):void{this.muted=value;}play(effect:Effect):void{if(!this.context||this.muted)return;const oscillator=this.context.createOscillator(),gain=this.context.createGain(),now=this.context.currentTime;oscillator.type=effect==='death'||effect==='break'?'sawtooth':'square';oscillator.frequency.setValueAtTime(tones[effect],now);oscillator.frequency.exponentialRampToValueAtTime(Math.max(40,tones[effect]*.62),now+.1);gain.gain.setValueAtTime(this.volume*.06,now);gain.gain.exponentialRampToValueAtTime(.0001,now+.12);oscillator.connect(gain).connect(this.context.destination);oscillator.start(now);oscillator.stop(now+.13);}}

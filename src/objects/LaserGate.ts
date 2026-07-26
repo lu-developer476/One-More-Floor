@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { LaserDefinition } from '../types/game';
+import type { TimedHazardDefinition } from '../types/game';
 
 export class LaserGate {
   readonly hitbox: Phaser.GameObjects.Zone;
@@ -10,8 +10,8 @@ export class LaserGate {
   private active = false;
 
   constructor(
-    private readonly scene: Phaser.Scene,
-    private readonly definition: LaserDefinition,
+    scene: Phaser.Scene,
+    private readonly definition: TimedHazardDefinition,
   ) {
     this.glow = scene.add
       .rectangle(
@@ -69,7 +69,7 @@ export class LaserGate {
     const cycle = this.definition.activeMs + this.definition.inactiveMs;
     const phase = (time + (this.definition.phaseMs ?? 0)) % cycle;
     const nextActive = phase < this.definition.activeMs;
-    const warningWindow = 260;
+    const warningWindow = this.definition.warningMs;
     const warning = !nextActive && cycle - phase <= warningWindow;
 
     if (nextActive !== this.active) {

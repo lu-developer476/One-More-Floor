@@ -26,15 +26,17 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private facing = 1;
   private gamepadJumpWasDown = false;
   private gamepadDashWasDown = false;
+  private directionLockedUntil = 0;
+  private wasGrounded = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y, 'player');
+    super(scene, x, y, 'player-idle-0');
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
     this.setCollideWorldBounds(true)
-      .setMaxVelocity(MOVEMENT.maxSpeed, 900)
+      .setMaxVelocity(MOVEMENT.maxSpeed, MOVEMENT.maxFallSpeed)
       .setDragX(MOVEMENT.drag);
 
     const body = this.body as Phaser.Physics.Arcade.Body;
@@ -74,7 +76,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const keyboardDirection =
       (this.controls.left.isDown || this.controls.arrowLeft.isDown ? -1 : 0) +
       (this.controls.right.isDown || this.controls.arrowRight.isDown ? 1 : 0);
-    const direction = keyboardDirection || axis;
+    const direction = now < this.directionLockedUntil ? 0 : keyboardDirection || axis;
 
     const gamepadJumpDown = pad?.A ?? false;
     const gamepadDashDown = (pad?.R1 ?? 0) > 0.5 || (pad?.R2 ?? 0) > 0.5;
@@ -133,6 +135,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
       if (wall && !grounded) {
         this.setVelocityX(body.blocked.left ? MOVEMENT.wallJumpX : -MOVEMENT.wallJumpX);
+        this.setVelocityY(-MOVEMENT.wallJumpY);
+        this.directionLockedUntil = now + MOVEMENT.wallJumpLockMs;
+        this.scene.events.emit('player:wall-jump', this.x, this.y);
       }
 
       this.jumpQueuedAt = -Infinity;
@@ -158,6 +163,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.updateState(grounded, wall, direction);
+    if (grounded && !this.wasGrounded && body.velocity.y >= MOVEMENT.landingThreshold) this.scene.events.emit('player:land',this.x,this.y);
+    this.wasGrounded=grounded;
+    this.setTexture(this.states.state===PlayerState.DASHING?'player-dash':this.states.state===PlayerState.JUMPING?'player-jump':this.states.state===PlayerState.FALLING?'player-fall':this.states.state===PlayerState.WALL_SLIDING?'player-wall':'player-idle-0');
   }
 
   private startDash(direction: number): void {
