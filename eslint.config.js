@@ -8,5 +8,6 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   { files: ['**/*.ts'], languageOptions: { globals: globals.browser } },
+  { files: ['scripts/**/*.mjs'], languageOptions: { globals: globals.node } },
   prettier,
 );

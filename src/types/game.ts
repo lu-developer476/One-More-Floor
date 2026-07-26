@@ -97,6 +97,9 @@ export interface HudData {
   dashReady: boolean;
   paused: boolean;
   progress: number;
+  attemptMs: number;
+  bestTimeMs: number | null;
+  ghostActive: boolean;
 }
 export interface LevelSceneData {
   levelIndex?: number;
@@ -110,4 +113,7 @@ export interface ResultData {
   levelIndex: number;
   totalElapsedMs: number;
   final: boolean;
+  previousBestMs: number | null;
+  ghostSaved: boolean;
+  ghostRun: import('../runs/GhostTypes').GhostRun;
 }

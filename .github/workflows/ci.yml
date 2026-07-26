@@ -15,6 +15,7 @@ jobs:
       - uses: actions/setup-node@v6
         with: { node-version: 22.12.0, cache: npm }
       - run: npm ci
+      - run: npm run check:text-only
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test
@@ -30,12 +31,3 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - name: Upload browser diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v6
-        with:
-          name: playwright-report
-          path: |
-            playwright-report/
-            test-results/
-          if-no-files-found: ignore

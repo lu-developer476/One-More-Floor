@@ -91,3 +91,64 @@ test('completion opens results and stores statistics', async ({ page }) => {
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Results'));
   expect(await page.evaluate(() => window.__OMF_E2E__?.save().floors['1']?.completed)).toBe(true);
 });
+
+test('countdown locks the player and attempt clock starts only after GO', async ({ page }) => {
+  await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.playerState === 'LOCKED');
+  expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.attemptMs)).toBe(0);
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
+  await page.waitForFunction(() => (window.__OMF_E2E__?.run()?.attemptMs ?? 0) > 0);
+});
+
+test('best completion persists a ghost and repeat creates its visual player', async ({ page }) => {
+  await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Level'));
+  await page.evaluate(() => window.__OMF_E2E__?.completeFloor());
+  await page.waitForFunction(() => window.__OMF_E2E__?.hasRecord(1));
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__OMF_E2E__));
+  await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.ghostActive === true);
+});
+
+test('showGhost false hides replay without deleting it', async ({ page }) => {
+  await page.evaluate(() => {
+    const key = 'one-more-floor.save.v4';
+    const save = JSON.parse(localStorage.getItem(key) ?? '{}') as { settings?: { showGhost?: boolean } };
+    if (save.settings) save.settings.showGhost = false;
+    localStorage.setItem(key, JSON.stringify(save));
+    window.__OMF_E2E__?.startFloor(0);
+  });
+  await page.waitForFunction(() => Boolean(window.__OMF_E2E__?.run()));
+  expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.ghostActive)).toBe(false);
+});
+
+test('corrupt and wrong-floor ghosts are isolated', async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.setItem('one-more-floor.save.v4', JSON.stringify({ version: 4, unlockedFloor: 2, settings: { showGhost: true }, floors: { '1': { completed: true, bestTimeMs: 100, bestGhost: { version: 1, floor: 2, samples: [] } } } }));
+    window.__OMF_E2E__?.startFloor(0);
+  });
+  await page.waitForFunction(() => Boolean(window.__OMF_E2E__?.run()));
+  expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.ghostActive)).toBe(false);
+});
+
+test('death and restart discard partial recording without duplicating saved ghost', async ({ page }) => {
+  await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+  await page.waitForFunction(() => Boolean(window.__OMF_E2E__?.run()));
+  await page.evaluate(() => window.__OMF_E2E__?.killPlayer());
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.playerState === 'LOCKED');
+  const before = await page.evaluate(() => window.__OMF_E2E__?.save().floors['1']?.bestGhost?.samples.length ?? 0);
+  await page.keyboard.press('r');
+  const after = await page.evaluate(() => window.__OMF_E2E__?.save().floors['1']?.bestGhost?.samples.length ?? 0);
+  expect(after).toBe(before);
+});
+
+test('pause freezes the gameplay clock and ghost', async ({ page }) => {
+  await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Pause'));
+  const before = await page.evaluate(() => window.__OMF_E2E__?.run()?.attemptMs);
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.attemptMs)).toBe(before);
+});

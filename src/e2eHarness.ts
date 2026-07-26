@@ -1,5 +1,7 @@
 import type Phaser from 'phaser';
 import { StorageService } from './services/StorageService';
+import type { GhostRun } from './runs/GhostTypes';
+import type { LevelScene } from './scenes/LevelScene';
 
 export interface E2EHarness {
   scene: () => string[];
@@ -7,6 +9,9 @@ export interface E2EHarness {
   killPlayer: () => void;
   completeFloor: () => void;
   save: () => ReturnType<StorageService['load']>;
+  run: () => ReturnType<LevelScene['getRunState']> | null;
+  injectGhost: (floor: number, ghost: GhostRun) => void;
+  hasRecord: (floor: number) => boolean;
 }
 
 export function installE2EHarness(game: Phaser.Game): void {
@@ -17,6 +22,9 @@ export function installE2EHarness(game: Phaser.Game): void {
     killPlayer: () => game.scene.getScene('Level').events.emit('e2e:kill'),
     completeFloor: () => game.scene.getScene('Level').events.emit('e2e:complete'),
     save: () => new StorageService().load(),
+    run: () => (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState() ?? null,
+    injectGhost: (floor, ghost) => { const service = new StorageService(); const save = service.load(); const key = String(floor); const old = save.floors[key]; save.floors[key] = { completed: old?.completed ?? true, bestTimeMs: old?.bestTimeMs ?? ghost.durationMs, fewestDeaths: old?.fewestDeaths ?? 0, rank: old?.rank ?? 'C', bestGhost: ghost }; service.save(save); },
+    hasRecord: (floor) => Boolean(new StorageService().load().floors[String(floor)]?.bestGhost),
   };
 }
 

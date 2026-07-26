@@ -1,79 +1,69 @@
-# One More Floor v0.4.0
+# One More Floor v0.5.0
 
-Juego 2D de plataformas de precisión construido con Phaser 3, TypeScript estricto y Vite. Escapá de cinco pisos breves de una instalación industrial antes del colapso.
+Plataformas 2D de precisión construido con Phaser 3.90, TypeScript estricto y Vite. Escapá de cinco pisos data-driven antes del colapso, ahora con contrarreloj justo y fantasma local.
 
-![One More Floor en ejecución](docs/screenshots/gameplay.svg)
+## Qué incluye 0.5.0
 
-## Qué incluye 0.4.0
-
-- Cinco pisos basados en datos, sin combate ni sistemas ajenos al plataformas de precisión.
-- Movimiento con salto variable, coyote time, jump buffer, wall slide/jump y dash aéreo.
-- Puerta temporizada de Reactor con placa telegrafiada, indicador de tiempo, apertura visual y cierre que espera si el jugador obstruye el paso.
-- Estados reales `IDLE`, `RUNNING`, `JUMPING`, `FALLING`, `WALL_SLIDING`, `DASHING`, `LANDING`, `LOCKED` y `DEAD`; idle/run usan Animation Manager.
-- Aterrizaje único clasificado como suave o fuerte a partir de la velocidad previa al impacto.
-- Ventiladores y cintas calculados con delta real y limitados; las cintas convergen a una velocidad objetivo.
-- Menús independientes de ajustes y pausa, utilizables con teclado, gamepad y mouse.
-- Volumen, mute, shake, intensidad reducida, reducción de flashes, alto contraste y fullscreen persistidos en el guardado v3.
-- Audio procedural Web Audio compartido, desbloqueado tras interacción, con volumen, mute, pausa y cooldown.
-- Cobertura unitaria de temporización de puerta, aterrizaje y fuerzas, más Playwright para los flujos principales.
+- Cuenta regresiva procedural `3 · 2 · 1 · GO`: jugador, cronómetro, hazards y plataformas permanecen detenidos hasta la salida.
+- Cronómetro de intento basado exclusivamente en delta de gameplay limitado; pausa, muerte, resultados y countdown no cuentan.
+- Grabación fija a 20 Hz, posiciones cuantizadas, límites estrictos y reproducción interpolada mediante un único sprite sin cuerpo físico.
+- El mejor ghost se guarda por piso sólo junto a un récord válido; los intentos fallidos se descartan.
+- Menú y HUD muestran PB, rango y disponibilidad del fantasma; `showGhost` se aplica y persiste de inmediato.
+- Persistencia JSON v4, con migración defensiva desde v1, v2 y v3 y recuperación aislada de ghosts corruptos.
+- Limpieza confirmada de fantasmas, récords o progreso completo desde Ajustes.
+- Recursos gráficos y audio generados en runtime. El repositorio aplica una política **text-only** y no contiene capturas.
 
 ## Controles
 
-| Acción          | Teclado           | Gamepad                  |
-| --------------- | ----------------- | ------------------------ |
-| Mover           | `A/D` o flechas   | stick izquierdo          |
-| Saltar          | `W`, `↑`, espacio | A                        |
-| Dash            | `Shift`           | RB/RT                    |
-| Pausa           | `Esc`             | Start                    |
-| Reinicio rápido | `R`               | opción del menú de pausa |
-| Menús           | flechas + `Enter` | stick + A/B              |
+| Acción | Teclado | Gamepad |
+| --- | --- | --- |
+| Mover | `A/D` o flechas | stick izquierdo |
+| Saltar | `W`, `↑`, espacio | A |
+| Dash | `Shift` | RB/RT |
+| Pausa | `Esc` | Start |
+| Reinicio | `R` | menú de pausa |
+| Menús | flechas + `Enter` | stick + A/B |
 
-La pausa ofrece continuar, reiniciar, ajustes, controles y volver al menú. Los ajustes se modifican individualmente; no existe remapeo arbitrario.
+La cuenta regresiva permite pausar o volver al menú. No se puede saltar y ningún input anterior a `GO` se convierte en una acción jugable.
 
-## Desarrollo
+## Desarrollo y política text-only
 
 Requiere Node.js 20.19+ o 22.12+.
 
 ```bash
 npm ci
-npm run dev
+npm run check:text-only
 npm run validate
 npm run test:e2e
-npm run test:e2e:headed
 ```
 
-`validate` ejecuta typecheck, ESLint, tests unitarios y build. Playwright inicia una build Vite con `VITE_E2E=true`; el harness no se instala en builds normales. La CI ejecuta validación y Chromium en jobs separados y conserva artefactos sólo al fallar.
+`check:text-only` inspecciona `git ls-files`, extensiones prohibidas, directorios generados, SVG con raster incrustado, referencias data y cargas sospechosas. `validate` lo ejecuta antes de typecheck, ESLint, Vitest y build. Playwright usa sólo reporter `list`, sin screenshots, videos ni traces; el harness existe únicamente con `VITE_E2E=true`.
 
 ## Arquitectura
 
 - `config/`: cinco niveles tipados y parámetros de movimiento.
-- `objects/TimedDoor.ts`: presentación y cuerpo Phaser de las puertas.
-- `systems/DoorTimer.ts` y `PhysicsMath.ts`: lógica pura, temporal y de fuerzas.
-- `entities/Player.ts` y `states/`: controlador, animación y máquina de estados.
-- `scenes/SettingsScene.ts` y `PauseScene.ts`: overlays con ciclo de vida explícito.
-- `services/`: guardado v3 con migración v1/v2 y autoridad única de audio procedural.
-- `e2e/`: pruebas reales del canvas y flujos de navegador.
+- `systems/RunCountdown.ts`: presentación Phaser y frontera determinista de inicio.
+- `runs/RunRecorder.ts`: sampling fijo y cuantizado sin Phaser.
+- `runs/GhostValidator.ts`: validación pura de JSON y límites.
+- `runs/GhostInterpolation.ts`: reproducción temporal pura y búsqueda incremental.
+- `runs/GhostPlayer.ts`: único sprite visual no físico.
+- `services/StorageService.ts`: autoridad de persistencia v4 y migraciones.
+- `scenes/`: composición, UI, ajustes y resultados.
+- `e2e/`: flujos de navegador basados en harness/estado, nunca píxeles.
 
 ## Render
 
-Configurar como **Static Site**:
-
-```text
-Build Command: npm ci && npm run build
-Publish Directory: dist
-```
-
-Vite conserva una base relativa; no requiere backend ni recursos externos.
+Static Site: build `npm ci && npm run build`, publicación `dist`. No requiere backend ni recursos externos.
 
 ## Limitaciones conocidas
 
-- Los tiempos/rangos todavía requieren balance con una muestra externa de jugadores.
-- Fullscreen depende de la concesión del navegador; el guardado se sincroniza con el evento real, no con la intención.
-- No hay remapeo arbitrario de controles.
-- La pasada automatizada cubre Chromium; hardware gamepad diverso, rendimiento de gama baja y playtesting humano exhaustivo siguen pendientes.
-- La captura SVG conserva la imagen real disponible en el repositorio en un formato de texto compatible con la revisión; debe regenerarse desde Playwright en un entorno que permita instalar Chromium antes de publicación definitiva.
+- Los tiempos y rangos aún requieren balance con una muestra externa de jugadores.
+- El ghost es local al navegador y no ofrece ranking remoto ni exportación.
+- Si alcanza el máximo de duración o samples, el recorder deja de agregar muestras sin interrumpir la partida.
+- Fullscreen depende de la concesión del navegador. No existe remapeo arbitrario.
+- CI automatiza Chromium; gamepads diversos, equipos de gama baja y playtesting humano exhaustivo siguen pendientes.
 
-La auditoría inicial detallada se conserva en [`docs/production-audit.md`](docs/production-audit.md).
+La auditoría de esta versión está en [`docs/time-trial-audit.md`](docs/time-trial-audit.md).
 
 ## Licencia
 

@@ -3,14 +3,18 @@ import { StorageService, type Settings } from '../services/StorageService';
 import { audioService } from '../services/AudioService';
 import { eventBus, Events } from '../utils/EventBus';
 
-const labels: readonly (keyof Settings | 'reset' | 'back')[] = [
+const labels: readonly (keyof Settings | 'reset' | 'clearGhosts' | 'clearRecords' | 'resetProgress' | 'back')[] = [
   'volume',
   'mute',
   'screenShake',
   'reducedShake',
   'reduceFlashes',
   'highContrast',
+  'showGhost',
   'fullscreen',
+  'clearGhosts',
+  'clearRecords',
+  'resetProgress',
   'reset',
   'back',
 ];
@@ -21,7 +25,11 @@ const names: Record<(typeof labels)[number], string> = {
   reducedShake: 'INTENSIDAD REDUCIDA',
   reduceFlashes: 'REDUCIR FLASHES',
   highContrast: 'ALTO CONTRASTE',
+  showGhost: 'MOSTRAR FANTASMA',
   fullscreen: 'PANTALLA COMPLETA',
+  clearGhosts: 'BORRAR FANTASMAS',
+  clearRecords: 'BORRAR RÉCORDS',
+  resetProgress: 'BORRAR TODO EL PROGRESO',
   reset: 'RESTAURAR PREDETERMINADOS',
   back: 'VOLVER',
 };
@@ -45,9 +53,9 @@ export class SettingsScene extends Phaser.Scene {
       .setOrigin(0.5);
     this.items = labels.map((_key, index) => {
       const item = this.add
-        .text(480, 104 + index * 43, '', {
+        .text(480, 88 + index * 32, '', {
           fontFamily: 'monospace',
-          fontSize: '18px',
+          fontSize: '16px',
           color: '#91a6b6',
         })
         .setOrigin(0.5)
@@ -100,7 +108,7 @@ export class SettingsScene extends Phaser.Scene {
     audioService.play('menuMove');
   }
   private value(key: (typeof labels)[number]): string {
-    if (key === 'reset' || key === 'back') return '';
+    if (key === 'reset' || key === 'clearGhosts' || key === 'clearRecords' || key === 'resetProgress' || key === 'back') return '';
     if (key === 'volume') return `${Math.round(this.settings.volume * 100)}%`;
     return this.settings[key] ? 'SÍ' : 'NO';
   }
@@ -117,6 +125,13 @@ export class SettingsScene extends Phaser.Scene {
   private change(direction: number): void {
     const key = labels[this.selected]!;
     if (key === 'back') return this.back();
+    if (key === 'clearGhosts' || key === 'clearRecords' || key === 'resetProgress') {
+      if (!window.confirm(`¿CONFIRMAR ${names[key]}?`)) return;
+      if (key === 'clearGhosts') this.service.clearGhosts();
+      else if (key === 'clearRecords') this.service.clearRecords();
+      else { this.service.resetProgress(); this.settings = this.service.load().settings; }
+      this.persist(); return;
+    }
     if (key === 'reset')
       this.settings = new StorageService({
         getItem: () => null,
