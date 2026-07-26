@@ -10,6 +10,8 @@ export interface FloorRecord {
   fewestDeaths: number | null;
   rank: Rank | null;
   bestGhost: GhostRun | null;
+  bestRunSplits: Record<string, number>;
+  bestSegments: Record<string, number>;
 }
 export interface Settings {
   volume: number;
@@ -20,9 +22,10 @@ export interface Settings {
   highContrast: boolean;
   fullscreen: boolean;
   showGhost: boolean;
+  localAnalyticsEnabled: boolean;
 }
 export interface SaveData {
-  version: 5;
+  version: 6;
   unlockedFloor: number;
   floors: Record<string, FloorRecord>;
   settings: Settings;
@@ -34,9 +37,26 @@ export interface RecordFloorResult {
   ghostSaved: boolean;
   rankImproved: boolean;
 }
+export interface CompletionPolicy {
+  progress: boolean;
+  bestTime: boolean;
+  rank: boolean;
+  ghost: boolean;
+}
+export interface CompletionOutcome extends RecordFloorResult {
+  progressSaved: boolean;
+  floorUnlocked: boolean;
+  improvedSegments: readonly string[];
+  bestTheoreticalMs: number | null;
+}
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
-const KEY = 'one-more-floor.save.v5';
-const OLD_KEYS = ['one-more-floor.save.v4', 'one-more-floor.save.v3', 'one-more-floor.save.v2'];
+const KEY = 'one-more-floor.save.v6';
+const OLD_KEYS = [
+  'one-more-floor.save.v5',
+  'one-more-floor.save.v4',
+  'one-more-floor.save.v3',
+  'one-more-floor.save.v2',
+];
 const LEGACY_KEY = 'one-more-floor.save.v1';
 const defaultSettings = (): Settings => ({
   volume: 0.7,
@@ -47,9 +67,10 @@ const defaultSettings = (): Settings => ({
   highContrast: false,
   fullscreen: false,
   showGhost: true,
+  localAnalyticsEnabled: true,
 });
 const defaults = (): SaveData => ({
-  version: 5,
+  version: 6,
   unlockedFloor: 1,
   floors: {},
   settings: defaultSettings(),
@@ -100,29 +121,88 @@ export class StorageService {
     rank: Rank,
     ghost?: GhostRun,
   ): RecordFloorResult {
+    return this.completeFloor(
+      floor,
+      time,
+      deaths,
+      rank,
+      {},
+      {},
+      { progress: true, bestTime: true, rank: true, ghost: true },
+      ghost,
+    );
+  }
+  completeFloor(
+    floor: number,
+    time: number,
+    deaths: number,
+    rank: Rank,
+    splits: Readonly<Record<string, number>>,
+    segments: Readonly<Record<string, number>>,
+    policy: CompletionPolicy,
+    ghost?: GhostRun,
+  ): CompletionOutcome {
     const data = this.load();
     const key = String(Math.floor(floor));
-    const unchanged = { save: data, newBestTime: false, ghostSaved: false, rankImproved: false };
+    const unchanged: CompletionOutcome = {
+      save: data,
+      progressSaved: false,
+      floorUnlocked: false,
+      newBestTime: false,
+      ghostSaved: false,
+      rankImproved: false,
+      improvedSegments: [],
+      bestTheoreticalMs: null,
+    };
     if (floor < 1 || floor > TOTAL_FLOORS) return unchanged;
     const safeTime = finite(time, 1);
     const safeDeaths = finite(deaths, 0);
     if (safeTime === null || safeDeaths === null) return unchanged;
     const old = data.floors[key];
-    const newBestTime = old?.bestTimeMs == null || safeTime < old.bestTimeMs;
-    const nextRank = betterRank(old?.rank ?? null, rank);
-    const rankImproved = old?.rank !== nextRank;
-    const validGhost = ghost && newBestTime ? validateGhostRun(ghost, floor) : null;
+    const newBestTime = policy.bestTime && (old?.bestTimeMs == null || safeTime < old.bestTimeMs);
+    const nextRank = policy.rank ? betterRank(old?.rank ?? null, rank) : (old?.rank ?? null);
+    const rankImproved = policy.rank && old?.rank !== nextRank;
+    const validGhost = ghost && policy.ghost && newBestTime ? validateGhostRun(ghost, floor) : null;
     const ghostSaved = validGhost !== null;
+    const bestSegments = { ...(old?.bestSegments ?? {}) };
+    const improvedSegments: string[] = [];
+    if (policy.bestTime)
+      for (const [id, value] of Object.entries(segments))
+        if (
+          finite(value, 1) !== null &&
+          (bestSegments[id] === undefined || value < bestSegments[id])
+        ) {
+          bestSegments[id] = value;
+          improvedSegments.push(id);
+        }
     data.floors[key] = {
-      completed: true,
-      bestTimeMs: newBestTime ? safeTime : old!.bestTimeMs,
-      fewestDeaths: old?.fewestDeaths == null ? safeDeaths : Math.min(old.fewestDeaths, safeDeaths),
+      completed: policy.progress || old?.completed === true,
+      bestTimeMs: newBestTime ? safeTime : (old?.bestTimeMs ?? null),
+      fewestDeaths: policy.rank
+        ? old?.fewestDeaths == null
+          ? safeDeaths
+          : Math.min(old.fewestDeaths, safeDeaths)
+        : (old?.fewestDeaths ?? null),
       rank: nextRank,
       bestGhost: validGhost ?? old?.bestGhost ?? null,
+      bestRunSplits: newBestTime ? { ...splits } : (old?.bestRunSplits ?? {}),
+      bestSegments,
     };
-    data.unlockedFloor = Math.min(TOTAL_FLOORS, Math.max(data.unlockedFloor, floor + 1));
+    const previousUnlocked = data.unlockedFloor;
+    if (policy.progress)
+      data.unlockedFloor = Math.min(TOTAL_FLOORS, Math.max(data.unlockedFloor, floor + 1));
     this.save(data);
-    return { save: data, newBestTime, ghostSaved, rankImproved };
+    const values = Object.values(bestSegments);
+    return {
+      save: data,
+      progressSaved: policy.progress,
+      floorUnlocked: data.unlockedFloor > previousUnlocked,
+      newBestTime,
+      ghostSaved,
+      rankImproved,
+      improvedSegments,
+      bestTheoreticalMs: values.length ? values.reduce((sum, value) => sum + value, 0) : null,
+    };
   }
   clearGhosts(): SaveData {
     const data = this.load();
@@ -137,6 +217,8 @@ export class StorageService {
       record.fewestDeaths = null;
       record.rank = null;
       record.bestGhost = null;
+      record.bestRunSplits = {};
+      record.bestSegments = {};
     }
     this.save(data);
     return data;
@@ -182,6 +264,8 @@ export const validate = (raw: Record<string, unknown>): SaveData => {
       typeof source.highContrast === 'boolean' ? source.highContrast : fallback.highContrast,
     fullscreen: typeof source.fullscreen === 'boolean' ? source.fullscreen : fallback.fullscreen,
     showGhost: typeof source.showGhost === 'boolean' ? source.showGhost : true,
+    localAnalyticsEnabled:
+      typeof source.localAnalyticsEnabled === 'boolean' ? source.localAnalyticsEnabled : true,
   };
   if (raw.floors && typeof raw.floors === 'object')
     for (const [key, value] of Object.entries(raw.floors as Record<string, unknown>)) {
@@ -201,6 +285,8 @@ export const validate = (raw: Record<string, unknown>): SaveData => {
         fewestDeaths: finite(record.fewestDeaths, 0),
         rank: validRank(record.rank),
         bestGhost: validateGhostRun(record.bestGhost, floor),
+        bestRunSplits: validTimes(record.bestRunSplits),
+        bestSegments: validTimes(record.bestSegments),
       };
     }
   return result;
@@ -219,8 +305,19 @@ const migrateLegacy = (old: Record<string, unknown> | null): SaveData => {
       fewestDeaths: deaths,
       rank: null,
       bestGhost: null,
+      bestRunSplits: {},
+      bestSegments: {},
     };
   return data;
+};
+const validTimes = (raw: unknown): Record<string, number> => {
+  const result: Record<string, number> = {};
+  if (!raw || typeof raw !== 'object') return result;
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    const safe = finite(value, 1);
+    if (/^[a-z0-9-]{1,80}$/.test(id) && safe !== null) result[id] = safe;
+  }
+  return result;
 };
 const betterRank = (current: Rank | null, candidate: Rank): Rank => {
   const order: readonly Rank[] = ['S', 'A', 'B', 'C'];

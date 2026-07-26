@@ -3,6 +3,7 @@ import type { TimedHazardDefinition } from '../types/game';
 import { timedCycleState } from '../systems/TimedCycle';
 
 export class LaserGate {
+  readonly id: string;
   readonly hitbox: Phaser.GameObjects.Zone;
 
   private readonly beam: Phaser.GameObjects.Rectangle;
@@ -14,6 +15,7 @@ export class LaserGate {
     scene: Phaser.Scene,
     private readonly definition: TimedHazardDefinition,
   ) {
+    this.id = definition.id ?? 'laser-unknown';
     this.glow = scene.add
       .rectangle(
         definition.x,

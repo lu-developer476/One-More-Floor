@@ -1,15 +1,20 @@
-# One More Floor v0.6.0
+# One More Floor v0.7.0
 
 Plataformas 2D de precisión construido con Phaser 3.90, TypeScript estricto y Vite. Escapá de cinco pisos data-driven antes del colapso, ahora con contrarreloj justo y fantasma local.
 
-## Qué incluye 0.6.0
+## Qué incluye 0.7.0
+
+- Splits data-driven, comparación contra PB, mejores segmentos y mejor tiempo teórico.
+- Estadísticas locales opcionales y acotadas: no se envían datos a Internet.
+- Causas de muerte tipadas y persistencia v6 con migración defensiva.
+- Validación estructural de niveles con `npm run check:levels`.
 
 - Cuenta regresiva procedural `3 · 2 · 1 · GO`: jugador, cronómetro, hazards y plataformas permanecen detenidos hasta la salida.
 - Cronómetro de intento basado exclusivamente en delta de gameplay limitado; pausa, muerte, resultados y countdown no cuentan.
 - Grabación fija a 20 Hz, posiciones cuantizadas, límites estrictos y reproducción interpolada mediante un único sprite sin cuerpo físico.
 - El mejor ghost se guarda por piso sólo junto a un récord válido; los intentos fallidos se descartan.
 - Menú y HUD muestran PB, rango y disponibilidad del fantasma; `showGhost` se aplica y persiste de inmediato.
-- Persistencia JSON v5, con migración defensiva desde v1, v2 y v3 y recuperación aislada de ghosts corruptos.
+- Persistencia JSON v6, con migración defensiva desde v1, v2 y v3 y recuperación aislada de ghosts corruptos.
 - Limpieza confirmada de fantasmas, récords o progreso completo desde Ajustes.
 - Recursos gráficos y audio generados en runtime. El repositorio aplica una política **text-only** y no contiene capturas.
 
@@ -42,6 +47,7 @@ Requiere Node.js 20.19+ o 22.12+.
 ```bash
 npm ci
 npm run check:text-only
+npm run check:levels
 npm run validate
 npm run test:e2e
 ```
@@ -73,7 +79,7 @@ Static Site: build `npm ci && npm run build`, publicación `dist`. No requiere b
 - Los prompts son textuales y cambian entre estilos genérico, Xbox, PlayStation y Nintendo; el estilo no altera el mapeo físico.
 - CI automatiza Chromium; gamepads diversos, equipos de gama baja y playtesting humano exhaustivo siguen pendientes.
 
-La auditoría de esta versión está en [`docs/time-trial-audit.md`](docs/time-trial-audit.md).
+La auditoría de esta versión está en [`docs/splits-analytics-audit.md`](docs/splits-analytics-audit.md).
 
 ## Licencia
 

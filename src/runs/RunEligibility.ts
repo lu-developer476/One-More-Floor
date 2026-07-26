@@ -15,7 +15,7 @@ export interface RunEligibility {
   reasons: readonly string[];
 }
 export function evaluateRunEligibility(request: EligibilityRequest): RunEligibility {
-  const practice = request.mode === 'practice' || request.startAnchorId !== 'start';
+  const practice = request.mode === 'practice';
   const assisted = request.mode === 'assisted' || request.gameplayAssist;
   const harness = request.e2e && !request.allowE2ECompetitive;
   const competitive = !practice && !assisted && !harness;

@@ -16,6 +16,7 @@ export interface Point {
   y: number;
 }
 export interface RectDefinition extends Point {
+  id?: string;
   width: number;
   height?: number;
 }
@@ -32,10 +33,12 @@ export interface FallingPlatformDefinition extends RectDefinition {
   delayMs?: number;
 }
 export interface SpikeDefinition extends Point {
+  id?: string;
   width: number;
   flipY?: boolean;
 }
 export interface TimedHazardDefinition extends Point {
+  id?: string;
   width: number;
   height: number;
   activeMs: number;
@@ -66,6 +69,14 @@ export interface RankThreshold {
 export interface PracticeAnchor extends Point {
   id: string;
   name: string;
+  startingSplitId: string | null;
+}
+export interface SplitDefinition extends Point {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  order: number;
 }
 export interface LevelDefinition {
   id: string;
@@ -79,7 +90,8 @@ export interface LevelDefinition {
   backgroundColor: number;
   spawn: Point;
   practiceAnchors: readonly PracticeAnchor[];
-  exit: Point & { label: string };
+  exit: Point & { id: string; label: string };
+  splits: readonly SplitDefinition[];
   platforms: readonly PlatformDefinition[];
   movingPlatforms: readonly MovingPlatformDefinition[];
   fallingPlatforms: readonly FallingPlatformDefinition[];
@@ -117,6 +129,7 @@ export interface LevelSceneData {
   allowE2ECompetitive?: boolean;
   deaths?: number;
   totalElapsedMs?: number;
+  gameplayAssist?: boolean;
 }
 export interface ResultData {
   elapsedMs: number;
@@ -130,4 +143,5 @@ export interface ResultData {
   mode: RunMode;
   eligibility: import('../runs/RunEligibility').RunEligibility;
   ghostRun: import('../runs/GhostTypes').GhostRun;
+  context: import('../runs/AttemptSession').RunContext;
 }

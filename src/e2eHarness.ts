@@ -47,6 +47,8 @@ export function installE2EHarness(game: Phaser.Game): void {
         fewestDeaths: old?.fewestDeaths ?? 0,
         rank: old?.rank ?? 'C',
         bestGhost: ghost,
+        bestRunSplits: old?.bestRunSplits ?? {},
+        bestSegments: old?.bestSegments ?? {},
       };
       service.save(save);
     },

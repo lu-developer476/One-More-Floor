@@ -17,9 +17,16 @@ export class ResultsScene extends Phaser.Scene {
     if (!level) throw new Error('Invalid result level');
     const rank = calculateRank(level, data.elapsedMs, data.deaths);
     const service = new StorageService();
-    const outcome = data.eligibility.bestTime
-      ? service.recordFloor(data.floor, data.elapsedMs, data.deaths, rank, data.ghostRun)
-      : null;
+    const outcome = service.completeFloor(
+      data.floor,
+      data.elapsedMs,
+      data.deaths,
+      rank,
+      {},
+      {},
+      data.eligibility,
+      data.ghostRun,
+    );
     const best = (outcome?.save ?? service.load()).floors[String(data.floor)];
     this.manager = new InputManager(this, service.load().input);
     this.manager.blockInherited();
@@ -86,7 +93,7 @@ export class ResultsScene extends Phaser.Scene {
     manager.poll();
     if (manager.wasPressed(InputAction.BACK)) this.scene.start('Menu');
     else if (manager.wasPressed(InputAction.RESTART))
-      this.scene.start('Level', { levelIndex: data.levelIndex, mode: data.mode });
+      this.scene.start('Level', { ...data.context });
     else if (manager.wasPressed(InputAction.CONFIRM))
       if (data.final || data.mode !== 'competitive') this.scene.start('Menu');
       else this.scene.start('Level', { levelIndex: data.levelIndex + 1, mode: 'competitive' });

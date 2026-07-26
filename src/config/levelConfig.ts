@@ -20,11 +20,49 @@ const base = (
   backgroundColor,
   spawn: { x: 90, y: 620 },
   practiceAnchors: [
-    { id: 'start', name: 'INICIO', x: 90, y: 620 },
-    { id: 'core', name: 'MECÁNICA CENTRAL', x: Math.round(width * 0.5), y: 620 },
-    { id: 'final', name: 'TRAMO FINAL', x: Math.round(width * 0.82), y: 620 },
+    {
+      id: `floor${String(floor).padStart(2, '0')}-anchor-start`,
+      name: 'INICIO',
+      x: 90,
+      y: 620,
+      startingSplitId: null,
+    },
   ],
-  exit: { x: width - 100, y: 620, label: 'ASCENSOR' },
+  exit: {
+    id: `floor${String(floor).padStart(2, '0')}-exit`,
+    x: width - 100,
+    y: 620,
+    label: 'ASCENSOR',
+  },
+  splits: [
+    {
+      id: `floor${String(floor).padStart(2, '0')}-split-entry`,
+      name: 'SALIDA',
+      x: 300,
+      y: 480,
+      width: 80,
+      height: 240,
+      order: 0,
+    },
+    {
+      id: `floor${String(floor).padStart(2, '0')}-split-core`,
+      name: 'MECÁNICA CENTRAL',
+      x: Math.round(width * 0.52),
+      y: 360,
+      width: 100,
+      height: 360,
+      order: 1,
+    },
+    {
+      id: `floor${String(floor).padStart(2, '0')}-split-final`,
+      name: 'ASCENSOR',
+      x: width - 140,
+      y: 480,
+      width: 100,
+      height: 240,
+      order: 2,
+    },
+  ],
   platforms: [ground(width)],
   movingPlatforms: [],
   fallingPlatforms: [],
@@ -43,6 +81,23 @@ const base = (
 });
 const evacuation = {
   ...base(1, 'EVACUACIÓN', 2800, 50000, 26000, 0x5ef1ff, 0x081521),
+  practiceAnchors: [
+    { id: 'floor01-anchor-start', name: 'INICIO', x: 90, y: 620, startingSplitId: null },
+    {
+      id: 'floor01-anchor-high',
+      name: 'PLATAFORMAS ALTAS',
+      x: 1510,
+      y: 470,
+      startingSplitId: 'floor01-split-entry',
+    },
+    {
+      id: 'floor01-anchor-final',
+      name: 'TRAMO FINAL',
+      x: 2360,
+      y: 620,
+      startingSplitId: 'floor01-split-core',
+    },
+  ],
   platforms: [
     ground(2800),
     { x: 500, y: 570, width: 180 },
@@ -66,6 +121,23 @@ const evacuation = {
 };
 const maintenance = {
   ...base(2, 'MANTENIMIENTO', 3200, 56000, 30000, 0x77f29a, 0x071b17),
+  practiceAnchors: [
+    { id: 'floor02-anchor-start', name: 'INICIO', x: 90, y: 620, startingSplitId: null },
+    {
+      id: 'floor02-anchor-moving',
+      name: 'PLATAFORMA MÓVIL',
+      x: 650,
+      y: 480,
+      startingSplitId: 'floor02-split-entry',
+    },
+    {
+      id: 'floor02-anchor-electric',
+      name: 'ELECTRICIDAD',
+      x: 1300,
+      y: 430,
+      startingSplitId: 'floor02-split-entry',
+    },
+  ],
   platforms: [
     ground(3200),
     { x: 650, y: 530, width: 170, oneWay: true },
@@ -90,6 +162,23 @@ const maintenance = {
 };
 const ventilation = {
   ...base(3, 'VENTILACIÓN', 3300, 60000, 34000, 0xc7d5dc, 0x111820),
+  practiceAnchors: [
+    { id: 'floor03-anchor-start', name: 'INICIO', x: 90, y: 620, startingSplitId: null },
+    {
+      id: 'floor03-anchor-wall',
+      name: 'WALL JUMP',
+      x: 1050,
+      y: 620,
+      startingSplitId: 'floor03-split-entry',
+    },
+    {
+      id: 'floor03-anchor-current',
+      name: 'CORRIENTE',
+      x: 1800,
+      y: 620,
+      startingSplitId: 'floor03-split-core',
+    },
+  ],
   platforms: [
     ground(3300),
     { x: 700, y: 520, width: 100 },
@@ -115,6 +204,23 @@ const ventilation = {
 };
 const reactor = {
   ...base(4, 'REACTOR', 3500, 58000, 33000, 0xff9c4a, 0x251007),
+  practiceAnchors: [
+    { id: 'floor04-anchor-start', name: 'INICIO', x: 90, y: 620, startingSplitId: null },
+    {
+      id: 'floor04-anchor-fragile',
+      name: 'PLATAFORMAS FRÁGILES',
+      x: 650,
+      y: 470,
+      startingSplitId: 'floor04-split-entry',
+    },
+    {
+      id: 'floor04-anchor-door',
+      name: 'PUERTA',
+      x: 2760,
+      y: 620,
+      startingSplitId: 'floor04-split-core',
+    },
+  ],
   platforms: [
     ground(3500),
     { x: 650, y: 520, width: 160 },
@@ -152,6 +258,23 @@ const reactor = {
 };
 const collapse = {
   ...base(5, 'COLAPSO', 3900, 56000, 35000, 0xff405c, 0x21060b),
+  practiceAnchors: [
+    { id: 'floor05-anchor-start', name: 'INICIO', x: 90, y: 620, startingSplitId: null },
+    {
+      id: 'floor05-anchor-walls',
+      name: 'MUROS',
+      x: 1300,
+      y: 620,
+      startingSplitId: 'floor05-split-entry',
+    },
+    {
+      id: 'floor05-anchor-final',
+      name: 'VENTILADOR FINAL',
+      x: 2880,
+      y: 620,
+      startingSplitId: 'floor05-split-core',
+    },
+  ],
   platforms: [
     ground(3900),
     { x: 580, y: 520, width: 130 },

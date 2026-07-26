@@ -16,6 +16,7 @@ jobs:
         with: { node-version: 22.12.0, cache: npm }
       - run: npm ci
       - run: npm run check:text-only
+      - run: npm run check:levels
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test
