@@ -87,6 +87,7 @@ export class PauseScene extends Phaser.Scene {
     audioService.resume();
   }
   private shutdown(): void {
+    this.manager.destroy();
     this.controls?.destroy();
   }
 }

@@ -38,6 +38,21 @@ describe('input', () => {
     expect(state.isDown(InputAction.JUMP)).toBe(true);
     state.update({ keys: new Set() });
     expect(state.wasReleased(InputAction.JUMP)).toBe(true);
+    state.update({ keys: new Set() });
+    expect(state.wasReleased(InputAction.JUMP)).toBe(false);
+  });
+  it.each([
+    ['KeyA', InputAction.MOVE_LEFT],
+    ['KeyD', InputAction.MOVE_RIGHT],
+    ['Space', InputAction.JUMP],
+    ['ShiftLeft', InputAction.DASH],
+    ['Escape', InputAction.PAUSE],
+    ['Escape', InputAction.BACK],
+    ['Enter', InputAction.CONFIRM],
+  ])('maps DOM code %s to %s', (code, action) => {
+    const state = new InputState(defaultInputSettings());
+    state.update({ keys: new Set([code]) });
+    expect(state.wasPressed(action)).toBe(true);
   });
   it('applies deadzone and changes device', () => {
     const state = new InputState(defaultInputSettings());
@@ -58,5 +73,35 @@ describe('input', () => {
     state.update({ keys: new Set() });
     state.update({ keys: new Set(['Enter']) });
     expect(state.wasPressed(InputAction.CONFIRM)).toBe(true);
+  });
+  it('keeps previous and next state independent across alternating frames', () => {
+    const state = new InputState(defaultInputSettings());
+    const keys = new Set(['KeyA']);
+    state.update({ keys });
+    keys.clear();
+    state.update({ keys });
+    expect(state.wasReleased(InputAction.MOVE_LEFT)).toBe(true);
+    keys.add('KeyD');
+    state.update({ keys });
+    expect(state.wasPressed(InputAction.MOVE_RIGHT)).toBe(true);
+    expect(state.isDown(InputAction.MOVE_LEFT)).toBe(false);
+  });
+  it('applies remapped settings immediately', () => {
+    const state = new InputState(defaultInputSettings());
+    const settings = defaultInputSettings();
+    settings.keyboard.JUMP = 'KeyJ';
+    state.setSettings(settings);
+    state.update({ keys: new Set(['KeyJ']) });
+    expect(state.wasPressed(InputAction.JUMP)).toBe(true);
+  });
+  it('keeps gamepad buttons and axis hysteresis working', () => {
+    const state = new InputState(defaultInputSettings());
+    state.update({ buttons: new Set([0]), axisX: 0.8, gamepadConnected: true });
+    expect(state.wasPressed(InputAction.JUMP)).toBe(true);
+    expect(state.isDown(InputAction.MOVE_RIGHT)).toBe(true);
+    state.update({ axisX: 0.45, gamepadConnected: true });
+    expect(state.isDown(InputAction.MOVE_RIGHT)).toBe(true);
+    state.update({ axisX: 0.2, gamepadConnected: true });
+    expect(state.isDown(InputAction.MOVE_RIGHT)).toBe(false);
   });
 });

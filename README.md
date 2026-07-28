@@ -1,8 +1,15 @@
-# One More Floor v0.7.0
+# One More Floor v0.7.1
 
 Plataformas 2D de precisión construido con Phaser 3.90, TypeScript estricto y Vite. Escapá de cinco pisos data-driven antes del colapso, ahora con contrarreloj justo y fantasma local.
 
 ## Qué incluye 0.7.0
+
+### Hotfix 0.7.1
+
+- El teclado usa `KeyboardEvent.code` como representación canónica en desarrollo y producción.
+- Las teclas mantenidas se liberan al perder foco o esconder la pestaña, sin dejar acciones atascadas.
+- El remapeo persiste, se aplica inmediatamente y puede restaurarse sin borrar progreso con `?reset-controls`.
+- Playwright valida los recorridos con eventos reales `page.keyboard`, sin acciones sintéticas del harness.
 
 - Splits data-driven, comparación contra PB, mejores segmentos y mejor tiempo teórico.
 - Estadísticas locales opcionales y acotadas: no se envían datos a Internet.

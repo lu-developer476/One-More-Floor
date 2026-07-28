@@ -10,13 +10,13 @@ class MemoryStorage {
   }
 }
 describe('StorageService', () => {
-  it('migrates v4 input defaults without losing progress',()=>{const store=new MemoryStorage();store.values.set('one-more-floor.save.v4',JSON.stringify({version:4,unlockedFloor:3,floors:{'1':{completed:true,bestTimeMs:900,fewestDeaths:0,rank:'S'}},settings:{showGhost:true},input:{keyboard:{JUMP:'invalid'}}}));const data=new StorageService(store).load();expect(data.version).toBe(5);expect(data.unlockedFloor).toBe(3);expect(data.floors['1']?.bestTimeMs).toBe(900);expect(data.input.keyboard.JUMP).toBe('Space')});
+  it('migrates v4 input defaults without losing progress',()=>{const store=new MemoryStorage();store.values.set('one-more-floor.save.v4',JSON.stringify({version:4,unlockedFloor:3,floors:{'1':{completed:true,bestTimeMs:900,fewestDeaths:0,rank:'S'}},settings:{showGhost:true},input:{keyboard:{JUMP:'invalid',DASH:'KeyQ'}}}));const data=new StorageService(store).load();expect(data.version).toBe(6);expect(data.unlockedFloor).toBe(3);expect(data.floors['1']?.bestTimeMs).toBe(900);expect(data.input.keyboard.JUMP).toBe('Space');expect(data.input.keyboard.DASH).toBe('KeyQ')});
 
   it('returns defaults for empty and invalid JSON', () => {
     const store = new MemoryStorage();
     expect(new StorageService(store).load().unlockedFloor).toBe(1);
     store.values.set('one-more-floor.save.v3', '{');
-    expect(new StorageService(store).load().version).toBe(5);
+    expect(new StorageService(store).load().version).toBe(6);
   });
   it('clamps and rejects corrupt fields without losing valid settings', () => {
     const store = new MemoryStorage();
@@ -50,7 +50,7 @@ describe('StorageService', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.version).toBe(5);
+    expect(data.version).toBe(6);
     expect(data.settings.showGhost).toBe(true);
     expect(data.unlockedFloor).toBe(2);
     expect(data.settings.reduceFlashes).toBe(false);

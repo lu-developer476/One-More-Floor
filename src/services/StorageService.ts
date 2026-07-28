@@ -228,6 +228,12 @@ export class StorageService {
     this.save(data);
     return data;
   }
+  resetControls(): SaveData {
+    const data = this.load();
+    data.input = defaultInputSettings();
+    this.save(data);
+    return data;
+  }
   recordResult(time: number, deaths: number) {
     const record = this.recordFloor(1, time, deaths, 'C').save.floors['1'];
     return { bestTimeMs: record?.bestTimeMs ?? null, fewestDeaths: record?.fewestDeaths ?? null };

@@ -26,6 +26,75 @@ test('menu loads without console errors and canvas has valid dimensions', async 
   expect(messages).toEqual([]);
 });
 
+test('real keyboard navigates menu and run setup', async ({ page }) => {
+  expect(await page.evaluate(() => window.__OMF_E2E__?.menuSelection())).toBe(0);
+  await page.keyboard.press('ArrowDown');
+  expect(await page.evaluate(() => window.__OMF_E2E__?.menuSelection())).toBe(1);
+  await page.keyboard.press('ArrowUp');
+  expect(await page.evaluate(() => window.__OMF_E2E__?.menuSelection())).toBe(0);
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('RunSetup'));
+  await page.keyboard.press('ArrowRight');
+  expect((await page.evaluate(() => window.__OMF_E2E__?.runSetupSelection()))?.mode).toBe(1);
+  await page.keyboard.press('ArrowDown');
+  expect((await page.evaluate(() => window.__OMF_E2E__?.runSetupSelection()))?.anchor).toBe(1);
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Menu'));
+});
+
+test('real held keyboard input moves, jumps, dashes, pauses and restarts', async ({ page }) => {
+  await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
+  const startX = await page.evaluate(() => window.__OMF_E2E__?.run()?.x ?? 0);
+  await page.keyboard.down('KeyD');
+  await page.waitForTimeout(250);
+  await page.keyboard.up('KeyD');
+  const rightX = await page.evaluate(() => window.__OMF_E2E__?.run()?.x ?? 0);
+  expect(rightX).toBeGreaterThan(startX);
+  await page.keyboard.down('KeyA');
+  await page.waitForTimeout(250);
+  await page.keyboard.up('KeyA');
+  expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.x ?? 0)).toBeLessThan(rightX);
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => (window.__OMF_E2E__?.run()?.velocityY ?? 0) < 0);
+  await page.keyboard.press('ShiftLeft');
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.playerState === 'DASHING');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Pause'));
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !window.__OMF_E2E__?.scene().includes('Pause'));
+  const attempt = await page.evaluate(() => window.__OMF_E2E__?.run()?.attemptMs ?? 0);
+  await page.keyboard.press('KeyR');
+  await page.waitForFunction((oldAttempt) => (window.__OMF_E2E__?.run()?.attemptMs ?? oldAttempt) < oldAttempt, attempt);
+});
+
+test('remapped KeyboardEvent.code works after reload and replaces the old key', async ({ page }) => {
+  await page.evaluate(() => window.__OMF_E2E__?.setBinding('JUMP', 'KeyJ'));
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__OMF_E2E__));
+  expect(await page.evaluate(() => window.__OMF_E2E__?.getBindings().keyboard.JUMP)).toBe('KeyJ');
+  await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(80);
+  expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.velocityY ?? 0)).toBeGreaterThanOrEqual(0);
+  await page.keyboard.press('KeyJ');
+  await page.waitForFunction(() => (window.__OMF_E2E__?.run()?.velocityY ?? 0) < 0);
+});
+
+test('focus loss clears a physically held key', async ({ page }) => {
+  await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
+  await page.keyboard.down('KeyD');
+  await page.waitForTimeout(100);
+  await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+  const blurredX = await page.evaluate(() => window.__OMF_E2E__?.run()?.x ?? 0);
+  await page.waitForTimeout(180);
+  const settledX = await page.evaluate(() => window.__OMF_E2E__?.run()?.x ?? 0);
+  await page.keyboard.up('KeyD');
+  expect(settledX - blurredX).toBeLessThan(35);
+});
+
 test('keyboard starts the unlocked floor and pause resumes without duplicate HUD', async ({
   page,
 }) => {

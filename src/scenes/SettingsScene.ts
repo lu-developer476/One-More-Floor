@@ -222,6 +222,7 @@ export class SettingsScene extends Phaser.Scene {
     else if (!this.scene.isActive('Menu')) this.scene.start('Menu');
   }
   private shutdown(): void {
+    this.manager.destroy();
     this.scale.off('enterfullscreen', this.syncFullscreen, this);
     this.scale.off('leavefullscreen', this.syncFullscreen, this);
   }

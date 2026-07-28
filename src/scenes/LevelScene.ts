@@ -54,6 +54,10 @@ export class LevelScene extends Phaser.Scene {
       mode: this.session.context.mode,
       eligibility: this.session.eligibility,
       anchorId: this.session.context.anchorId,
+      x: this.player?.x ?? 0,
+      y: this.player?.y ?? 0,
+      velocityX: (this.player?.body as Phaser.Physics.Arcade.Body | undefined)?.velocity.x ?? 0,
+      velocityY: (this.player?.body as Phaser.Physics.Arcade.Body | undefined)?.velocity.y ?? 0,
     };
   }
 
@@ -400,6 +404,7 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private shutdown(): void {
+    this.inputManager.destroy();
     this.countdown?.destroy();
     this.ghost?.destroy();
     this.events.off(Events.PLAYER_DASH, this.dashTrail, this);
