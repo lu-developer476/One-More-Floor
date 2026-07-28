@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import path from 'node:path';
+const root = process.cwd();
+const tokens = fs.readFileSync(path.join(root, 'src/ui/UiTokens.ts'), 'utf8');
+const required = ['background', 'elevated', 'panel', 'selected', 'border', 'focus', 'text', 'secondary', 'disabled', 'primary', 'warning', 'danger', 'success', 'deltaPositive', 'deltaNegative'];
+const missing = required.filter((token) => !new RegExp(`\\b${token}:`).test(tokens));
+if (missing.length) throw new Error(`Tokens ausentes: ${missing.join(', ')}`);
+if (!/body:\s*16/.test(tokens) || !/hitHeight:\s*44/.test(tokens) || !/safe:\s*24/.test(tokens)) throw new Error('Mínimos de legibilidad incompletos.');
+const copy = fs.readFileSync(path.join(root, 'src/ui/UiCopy.ts'), 'utf8');
+for (const label of ['Mover a la izquierda', 'Saltar', 'Volver / cancelar', 'TECLADO', 'MANDO', 'GENÉRICO']) if (!copy.includes(label)) throw new Error(`Copy ausente: ${label}`);
+const config = fs.readFileSync(path.join(root, 'src/config/gameConfig.ts'), 'utf8');
+if (!config.includes('CreditsScene')) throw new Error('CreditsScene no está registrada.');
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+if (!html.includes('<title>One More Floor</title>')) throw new Error('El título del navegador cambió.');
+console.log('UI v1.1.0: tokens, copy, mínimos, créditos y título verificados.');

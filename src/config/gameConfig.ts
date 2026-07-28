@@ -16,6 +16,7 @@ import { TowerFloorResultsScene } from '../scenes/TowerFloorResultsScene';
 import { EndingScene } from '../scenes/EndingScene';
 import { TowerResultsScene } from '../scenes/TowerResultsScene';
 import { HelpScene } from '../scenes/HelpScene';
+import { CreditsScene } from '../scenes/CreditsScene';
 
 export const GAME_WIDTH = 960;
 export const GAME_HEIGHT = 540;
@@ -70,5 +71,6 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     EndingScene,
     TowerResultsScene,
     HelpScene,
+    CreditsScene,
   ],
 };

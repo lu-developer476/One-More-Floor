@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.0
+
+### Added
+- Sistema de diseño compartido, navegación y foco unificados, componentes accesibles, categorías de ajustes, escena de créditos y auditoría automática de UI.
+
+### Changed
+- Menú principal, ajustes, controles, ayuda, selección de pisos, setup de modos, pausa, resultados, analytics, HUD y modales.
+
+### Fixed
+- Textos internos visibles, listas sobrecargadas, jerarquía insuficiente, hit areas pequeñas, acciones destructivas mezcladas, prompts hardcodeados, foco débil y pantallas difíciles de leer.
+
 ## 1.0.1
 
 ### Changed

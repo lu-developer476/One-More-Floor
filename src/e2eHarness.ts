@@ -10,6 +10,7 @@ import { LocalAnalyticsService } from './analytics/LocalAnalyticsService';
 import { TowerRunSession } from './runs/TowerRunSession';
 import { TowerCheckpointService } from './runs/TowerCheckpointService';
 import { createTowerFloorRunData } from './runs/RunContext';
+import { readUiAudit, type UiAuditSnapshot } from './ui/UiAudit';
 
 export interface E2EHarness {
   scene: () => string[];
@@ -53,6 +54,7 @@ export interface E2EHarness {
   getMenuItemBounds: () => unknown;
   getFocusedAction: () => number;
   getMenuActions: () => readonly string[];
+  getUiAudit: (scene: string) => UiAuditSnapshot | null;
 }
 
 export function installE2EHarness(game: Phaser.Game): void {
@@ -159,6 +161,7 @@ export function installE2EHarness(game: Phaser.Game): void {
     getMenuItemBounds: () => (game.scene.getScene('Menu') as MenuScene).getItemBounds(),
     getFocusedAction: () => (game.scene.getScene('Menu') as MenuScene).getSelection(),
     getMenuActions: () => (game.scene.getScene('Menu') as MenuScene).getActions(),
+    getUiAudit: (scene) => readUiAudit(scene),
   };
 }
 
