@@ -32,4 +32,4 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - run: npm run test:e2e:preview
+      - run: npm run test:e2e:smoke

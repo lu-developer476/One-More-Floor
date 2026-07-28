@@ -23,7 +23,7 @@ describe('StorageService', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.version).toBe(7);
+    expect(data.version).toBe(8);
     expect(data.unlockedFloor).toBe(3);
     expect(data.floors['1']?.bestTimeMs).toBe(900);
     expect(data.input.keyboard.JUMP).toBe('Space');
@@ -34,7 +34,7 @@ describe('StorageService', () => {
     const store = new MemoryStorage();
     expect(new StorageService(store).load().unlockedFloor).toBe(1);
     store.values.set('one-more-floor.save.v3', '{');
-    expect(new StorageService(store).load().version).toBe(7);
+    expect(new StorageService(store).load().version).toBe(8);
   });
   it('clamps and rejects corrupt fields without losing valid settings', () => {
     const store = new MemoryStorage();
@@ -68,7 +68,7 @@ describe('StorageService', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.version).toBe(7);
+    expect(data.version).toBe(8);
     expect(data.settings.showGhost).toBe(true);
     expect(data.unlockedFloor).toBe(2);
     expect(data.settings.reduceFlashes).toBe(false);
@@ -131,7 +131,7 @@ describe('tower persistence v7', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.version).toBe(7);
+    expect(data.version).toBe(8);
     expect(data.unlockedFloor).toBe(4);
     expect(data.floors['1']?.bestTimeMs).toBe(1000);
     expect(data.tower.bestTimeMs).toBeNull();
@@ -144,10 +144,75 @@ describe('tower persistence v7', () => {
         cumulativeTowerMs: floor * 1000,
       }));
     service.recordTower(5000, 8, 'B', results);
-    service.recordTower(6000, 3, 'A', results);
+    service.recordTower(
+      6000,
+      3,
+      'A',
+      results.map((result) => ({
+        ...result,
+        elapsedMs: 1200,
+        cumulativeTowerMs: result.floor * 1200,
+      })),
+    );
     const tower = service.load().tower;
     expect(tower.bestTimeMs).toBe(5000);
     expect(tower.fewestDeaths).toBe(3);
-    expect(tower.rank).toBe('A');
+    expect(tower.bestRank).toBe('A');
+  });
+});
+
+describe('tower persistence v8 coherence', () => {
+  const run = (floorMs: number[]) =>
+    floorMs.map((elapsedMs, index) => ({
+      floor: index + 1,
+      elapsedMs,
+      cumulativeTowerMs: floorMs.slice(0, index + 1).reduce((sum, value) => sum + value, 0),
+    }));
+  it('replaces the complete PB reference but keeps independent floor bests', () => {
+    const service = new StorageService(new MemoryStorage());
+    const first = service.recordTower(5000, 5, 'B', run([1000, 1000, 1000, 1000, 1000]));
+    expect(first).toMatchObject({ persisted: true, newBestTime: true, bestRunReplaced: true });
+    service.recordTower(4900, 7, 'C', run([500, 1100, 1100, 1100, 1100]));
+    const tower = service.load().tower;
+    expect(tower.bestRunFloorTimes).toEqual({
+      '1': 500,
+      '2': 1100,
+      '3': 1100,
+      '4': 1100,
+      '5': 1100,
+    });
+    expect(tower.bestRunCumulativeTimes['5']).toBe(4900);
+    service.recordTower(5400, 1, 'S', run([400, 1250, 1250, 1250, 1250]));
+    expect(service.load().tower.bestRunCumulativeTimes['5']).toBe(4900);
+    expect(service.load().tower.bestIndividualFloorTimes['1']).toBe(400);
+  });
+  it('does not persist an assisted result', () => {
+    const service = new StorageService(new MemoryStorage());
+    const outcome = service.recordTower(5000, 0, 'S', run([1000, 1000, 1000, 1000, 1000]), false);
+    expect(outcome).toMatchObject({ eligible: false, persisted: false, newBestTime: false });
+    expect(service.load().tower.completed).toBe(false);
+  });
+  it('migrates v7 without treating cumulative minima as one run', () => {
+    const store = new MemoryStorage();
+    store.values.set(
+      'one-more-floor.save.v7',
+      JSON.stringify({
+        version: 7,
+        unlockedFloor: 3,
+        tower: {
+          completed: true,
+          bestTimeMs: 5000,
+          fewestDeaths: 2,
+          rank: 'A',
+          bestFloorTimes: { '1': 800 },
+          bestCumulativeTimes: { '1': 800, '5': 5000 },
+        },
+      }),
+    );
+    const tower = new StorageService(store).load().tower;
+    expect(tower.bestTimeMs).toBe(5000);
+    expect(tower.bestRank).toBe('A');
+    expect(tower.bestIndividualFloorTimes).toEqual({ '1': 800 });
+    expect(tower.bestRunCumulativeTimes).toEqual({});
   });
 });

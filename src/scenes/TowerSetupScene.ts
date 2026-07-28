@@ -7,10 +7,14 @@ import { TowerRunSession } from '../runs/TowerRunSession';
 import { TowerCheckpointService } from '../runs/TowerCheckpointService';
 import { createTowerFloorRunData } from '../runs/RunContext';
 import { LocalAnalyticsService } from '../analytics/LocalAnalyticsService';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { TowerRunCoordinator } from '../runs/TowerRunCoordinator';
 export class TowerSetupScene extends Phaser.Scene {
   private selected = 0;
   private manager!: InputManager;
   private items: Phaser.GameObjects.Text[] = [];
+  private dialog?: ConfirmDialog;
+  private transitioning = false;
   constructor() {
     super('TowerSetup');
   }
@@ -61,6 +65,8 @@ export class TowerSetupScene extends Phaser.Scene {
   }
   update(): void {
     this.manager.poll();
+    this.dialog?.update(this.manager);
+    if (this.dialog || this.transitioning) return;
     if (this.manager.wasPressed(InputAction.MENU_UP))
       this.select((this.selected + this.items.length - 1) % this.items.length);
     if (this.manager.wasPressed(InputAction.MENU_DOWN))
@@ -77,6 +83,28 @@ export class TowerSetupScene extends Phaser.Scene {
       this.scene.start('Menu');
       return;
     }
+    if (new TowerCheckpointService().load()) {
+      this.dialog = new ConfirmDialog(
+        this,
+        'NUEVA TOWER RUN',
+        'Existe una Tower Run pendiente.\nComenzar otra eliminará su checkpoint.',
+        () => {
+          this.dialog = undefined;
+          new TowerRunCoordinator().abandon();
+          this.begin();
+        },
+        () => {
+          this.dialog = undefined;
+        },
+        { confirm: 'COMENZAR NUEVA', cancel: 'CANCELAR' },
+      );
+      return;
+    }
+    this.begin();
+  }
+  private begin(): void {
+    if (this.transitioning) return;
+    this.transitioning = true;
     const session = TowerRunSession.start(this.selected === 0 ? 'competitive' : 'assisted');
     new TowerCheckpointService().save(session);
     const save = new StorageService().load();

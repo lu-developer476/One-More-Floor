@@ -39,3 +39,18 @@ describe('calculateTowerRank', () => {
     expect(calculateTowerRank(TOWER_RANK_THRESHOLDS.B.maxTimeMs + 1, 0)).toBe('C');
   });
 });
+
+describe('checkpoint integrity', () => {
+  it('derives eligibility from mode instead of trusting storage', () => {
+    const assisted = TowerRunSession.start('assisted', 'tower-assisted-derived').serialize();
+    const competitive = TowerRunSession.start('competitive', 'tower-competitive-derived').serialize();
+    expect(TowerRunSession.restore({ ...assisted, eligible: true })?.state.eligible).toBe(false);
+    expect(TowerRunSession.restore({ ...competitive, eligible: false })?.state.eligible).toBe(true);
+  });
+  it('rejects incoherent statuses and floor progression', () => {
+    const active = TowerRunSession.start('competitive', 'tower-status-check').serialize();
+    expect(TowerRunSession.restore({ ...active, status: 'between-floors' })).toBeNull();
+    expect(TowerRunSession.restore({ ...active, nextFloor: 2 })).toBeNull();
+    expect(TowerRunSession.restore({ ...active, status: 'completed' })).toBeNull();
+  });
+});

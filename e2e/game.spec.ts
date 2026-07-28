@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 const errors = (page: import('@playwright/test').Page) => {
   const messages: string[] = [];
@@ -9,7 +9,26 @@ const errors = (page: import('@playwright/test').Page) => {
   return messages;
 };
 
+const selectMenuAction = async (page: import('@playwright/test').Page, action: string) => {
+  const actions = await page.evaluate(() => window.__OMF_E2E__?.getMenuActions() ?? []);
+  const target = actions.indexOf(action);
+  expect(target, `menu action ${action}`).toBeGreaterThanOrEqual(0);
+  while ((await page.evaluate(() => window.__OMF_E2E__?.menuSelection())) !== target)
+    await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+};
+
 test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    for (const key of [
+      'one-more-floor.save.v8',
+      'one-more-floor.save.v7',
+      'one-more-floor.save.v6',
+      'one-more-floor.tower.v1',
+      'one-more-floor.analytics.v1',
+    ])
+      localStorage.removeItem(key);
+  });
   await page.goto('/');
   await expect(page.locator('canvas')).toBeVisible();
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Menu'));
@@ -26,18 +45,14 @@ test('menu loads without console errors and canvas has valid dimensions', async 
   expect(messages).toEqual([]);
 });
 
-test('real keyboard navigates menu and run setup', async ({ page }) => {
+test('real keyboard navigates menu and opens Tower Setup', async ({ page }) => {
   expect(await page.evaluate(() => window.__OMF_E2E__?.menuSelection())).toBe(0);
   await page.keyboard.press('ArrowDown');
   expect(await page.evaluate(() => window.__OMF_E2E__?.menuSelection())).toBe(1);
   await page.keyboard.press('ArrowUp');
   expect(await page.evaluate(() => window.__OMF_E2E__?.menuSelection())).toBe(0);
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('RunSetup'));
-  await page.keyboard.press('ArrowRight');
-  expect((await page.evaluate(() => window.__OMF_E2E__?.runSetupSelection()))?.mode).toBe(1);
-  await page.keyboard.press('ArrowDown');
-  expect((await page.evaluate(() => window.__OMF_E2E__?.runSetupSelection()))?.anchor).toBe(1);
+  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('TowerSetup'));
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Menu'));
 });
@@ -65,10 +80,15 @@ test('real held keyboard input moves, jumps, dashes, pauses and restarts', async
   await page.waitForFunction(() => !window.__OMF_E2E__?.scene().includes('Pause'));
   const attempt = await page.evaluate(() => window.__OMF_E2E__?.run()?.attemptMs ?? 0);
   await page.keyboard.press('KeyR');
-  await page.waitForFunction((oldAttempt) => (window.__OMF_E2E__?.run()?.attemptMs ?? oldAttempt) < oldAttempt, attempt);
+  await page.waitForFunction(
+    (oldAttempt) => (window.__OMF_E2E__?.run()?.attemptMs ?? oldAttempt) < oldAttempt,
+    attempt,
+  );
 });
 
-test('remapped KeyboardEvent.code works after reload and replaces the old key', async ({ page }) => {
+test('remapped KeyboardEvent.code works after reload and replaces the old key', async ({
+  page,
+}) => {
   await page.evaluate(() => window.__OMF_E2E__?.setBinding('JUMP', 'KeyJ'));
   await page.reload();
   await page.waitForFunction(() => Boolean(window.__OMF_E2E__));
@@ -77,7 +97,9 @@ test('remapped KeyboardEvent.code works after reload and replaces the old key', 
   await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
   await page.keyboard.press('Space');
   await page.waitForTimeout(80);
-  expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.velocityY ?? 0)).toBeGreaterThanOrEqual(0);
+  expect(
+    await page.evaluate(() => window.__OMF_E2E__?.run()?.velocityY ?? 0),
+  ).toBeGreaterThanOrEqual(0);
   await page.keyboard.press('KeyJ');
   await page.waitForFunction(() => (window.__OMF_E2E__?.run()?.velocityY ?? 0) < 0);
 });
@@ -99,7 +121,7 @@ test('keyboard starts the unlocked floor and pause resumes without duplicate HUD
   page,
 }) => {
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('RunSetup'));
+  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('TowerSetup'));
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Level'));
   await page.keyboard.press('Escape');
@@ -111,14 +133,13 @@ test('keyboard starts the unlocked floor and pause resumes without duplicate HUD
   ).toHaveLength(1);
 });
 
-test('mouse selects a floor option', async ({ page }) => {
-  await page.mouse.click(480, 190);
-  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('RunSetup'));
+test('mouse selects Tower Run', async ({ page }) => {
+  await page.mouse.click(480, 145);
+  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('TowerSetup'));
 });
 
 test('settings change independently and persist after reload', async ({ page }) => {
-  for (let index = 0; index < 7; index += 1) await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('Enter');
+  await selectMenuAction(page, 'AJUSTES');
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Settings'));
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
@@ -132,15 +153,19 @@ test('physical player overlap activates the first split only once', async ({ pag
   await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
   await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
   await page.keyboard.down('KeyD');
-  await page.waitForFunction(() => (window.__OMF_E2E__?.getCompletedSplits() as unknown[] | undefined)?.length === 1);
+  await page.waitForFunction(
+    () => (window.__OMF_E2E__?.getCompletedSplits() as unknown[] | undefined)?.length === 1,
+  );
   await page.keyboard.up('KeyD');
-  expect((await page.evaluate(() => window.__OMF_E2E__?.getCompletedSplits()))).toHaveLength(1);
+  expect(await page.evaluate(() => window.__OMF_E2E__?.getCompletedSplits())).toHaveLength(1);
 });
 
 test('future split is ignored and analytics scene opens', async ({ page }) => {
   await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
   await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
-  expect(await page.evaluate(() => window.__OMF_E2E__?.triggerSplit('floor01-split-high'))).toBeNull();
+  expect(
+    await page.evaluate(() => window.__OMF_E2E__?.triggerSplit('floor01-split-high')),
+  ).toBeNull();
   expect((await page.evaluate(() => window.__OMF_E2E__?.getAnalytics(1)))?.attempts).toBe(1);
   await page.evaluate(() => window.__OMF_E2E__?.openAnalytics());
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Analytics'));
@@ -167,10 +192,11 @@ test('death restarts floor without duplicating HUD', async ({ page }) => {
 });
 
 test('locked floor selection does not start another floor', async ({ page }) => {
-  await page.keyboard.press('ArrowDown');
+  await selectMenuAction(page, 'PISOS');
+  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('FloorSelect'));
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
-  expect(await page.evaluate(() => window.__OMF_E2E__?.scene())).toContain('Menu');
+  expect(await page.evaluate(() => window.__OMF_E2E__?.scene())).toContain('FloorSelect');
 });
 
 test('completion opens results and stores statistics', async ({ page }) => {
@@ -202,7 +228,7 @@ test('best completion persists a ghost and repeat creates its visual player', as
 
 test('showGhost false hides replay without deleting it', async ({ page }) => {
   await page.evaluate(() => {
-    const key = 'one-more-floor.save.v5';
+    const key = 'one-more-floor.save.v8';
     const save = JSON.parse(localStorage.getItem(key) ?? '{}') as {
       settings?: { showGhost?: boolean };
     };
@@ -217,9 +243,9 @@ test('showGhost false hides replay without deleting it', async ({ page }) => {
 test('corrupt and wrong-floor ghosts are isolated', async ({ page }) => {
   await page.evaluate(() => {
     localStorage.setItem(
-      'one-more-floor.save.v5',
+      'one-more-floor.save.v8',
       JSON.stringify({
-        version: 5,
+        version: 8,
         unlockedFloor: 2,
         settings: { showGhost: true },
         floors: {

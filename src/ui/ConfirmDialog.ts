@@ -11,6 +11,7 @@ export class ConfirmDialog {
     description: string,
     private confirm: () => void,
     private cancel: () => void,
+    labels: { confirm: string; cancel: string } = { confirm: 'CONFIRMAR', cancel: 'CANCELAR' },
   ) {
     const shade = scene.add.rectangle(480, 270, 960, 540, 0x000000, 0.78).setInteractive();
     const panel = scene.add.rectangle(480, 270, 650, 260, 0x071018, 1).setStrokeStyle(2, 0xf5c84c);
@@ -24,12 +25,20 @@ export class ConfirmDialog {
       })
       .setOrigin(0.5);
     const yes = scene.add
-      .text(390, 330, 'CONFIRMAR', { fontFamily: 'monospace', fontSize: '18px', color: '#ff7185' })
+      .text(390, 330, labels.confirm, {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: '#ff7185',
+      })
       .setOrigin(0.5)
       .setInteractive()
       .on('pointerdown', () => this.accept());
     const no = scene.add
-      .text(570, 330, 'CANCELAR', { fontFamily: 'monospace', fontSize: '18px', color: '#5ef1ff' })
+      .text(570, 330, labels.cancel, {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: '#5ef1ff',
+      })
       .setOrigin(0.5)
       .setInteractive()
       .on('pointerdown', () => this.reject());

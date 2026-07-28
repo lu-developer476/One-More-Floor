@@ -2,12 +2,12 @@
 
 ## Tower Run
 
-La v0.9.0 encadena los cinco pisos en una sesión con tiempo de juego y muertes acumulados. El checkpoint local se escribe entre pisos; al recargar se retoma desde el anchor inicial del piso pendiente y se descarta el intento parcial. Competitivo guarda récord/rango global y conserva los récords y ghosts individuales; asistido conserva progresión sin reemplazar datos competitivos.
-v0.9.0
+La v0.9.1 encadena los cinco pisos en una sesión con tiempo de juego y muertes acumulados. El checkpoint local se escribe entre pisos; al recargar se retoma desde el anchor inicial del piso pendiente y se descarta el intento parcial. Competitivo guarda un récord global coherente con una partida real y conserva récords y ghosts individuales; asistido conserva progresión sin reemplazar datos competitivos. La v0.9.1 centraliza abandonos, confirma reemplazos y migra la persistencia a v8.
+v0.9.1
 
 Plataformas 2D de precisión construido con Phaser 3.90, TypeScript estricto y Vite. Escapá de cinco pisos data-driven antes del colapso, ahora con contrarreloj justo y fantasma local.
 
-## Qué incluye 0.9.0
+## Qué incluye 0.9.1
 
 ### Hotfix 0.7.1
 
@@ -28,7 +28,7 @@ Plataformas 2D de precisión construido con Phaser 3.90, TypeScript estricto y V
 - Grabación fija a 20 Hz, posiciones cuantizadas, límites estrictos y reproducción interpolada mediante un único sprite sin cuerpo físico.
 - El mejor ghost se guarda por piso sólo junto a un récord válido; los intentos fallidos se descartan.
 - Menú y HUD muestran PB, rango y disponibilidad del fantasma; `showGhost` se aplica y persiste de inmediato.
-- Persistencia JSON v6, con migración defensiva desde v1, v2 y v3 y recuperación aislada de ghosts corruptos.
+- Persistencia JSON v8, con migración defensiva desde v1, v2 y v3 y recuperación aislada de ghosts corruptos.
 - Limpieza confirmada de fantasmas, récords o progreso completo desde Ajustes.
 - Recursos gráficos y audio generados en runtime. El repositorio aplica una política **text-only** y no contiene capturas.
 
@@ -76,7 +76,7 @@ npm run test:e2e
 - `runs/GhostValidator.ts`: validación pura de JSON y límites.
 - `runs/GhostInterpolation.ts`: reproducción temporal pura y búsqueda incremental.
 - `runs/GhostPlayer.ts`: único sprite visual no físico.
-- `services/StorageService.ts`: autoridad de persistencia v6 y migraciones.
+- `services/StorageService.ts`: autoridad de persistencia v8 y migraciones.
 - `scenes/`: composición, UI, ajustes y resultados.
 - `e2e/`: flujos de navegador basados en harness/estado, nunca píxeles.
 
@@ -93,7 +93,7 @@ Static Site: build `npm ci && npm run build`, publicación `dist`. No requiere b
 - Los prompts son textuales y cambian entre estilos genérico, Xbox, PlayStation y Nintendo; el estilo no altera el mapeo físico.
 - CI automatiza Chromium; gamepads diversos, equipos de gama baja y playtesting humano exhaustivo siguen pendientes.
 
-La auditoría de esta versión está en [`docs/splits-analytics-completion-080.md`](docs/splits-analytics-completion-080.md).
+La auditoría de esta versión está en [`docs/tower-run-stability-091.md`](docs/tower-run-stability-091.md).
 
 ## Licencia
 
