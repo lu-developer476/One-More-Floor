@@ -6,6 +6,7 @@ import type { InputAction } from './input/InputAction';
 import { LEVELS } from './config/levelConfig';
 import type { MenuScene } from './scenes/MenuScene';
 import type { RunSetupScene } from './scenes/RunSetupScene';
+import { LocalAnalyticsService } from './analytics/LocalAnalyticsService';
 
 export interface E2EHarness {
   scene: () => string[];
@@ -28,6 +29,15 @@ export interface E2EHarness {
   getGhostState: () => string | null;
   menuSelection: () => number;
   runSetupSelection: () => { mode: number; anchor: number } | null;
+  getCurrentSplit: () => unknown;
+  getNextSplit: () => unknown;
+  getCompletedSplits: () => unknown;
+  triggerSplit: (id: string) => unknown;
+  getLastSplitFeedback: () => unknown;
+  getCompletionOutcome: () => unknown;
+  getAnalytics: (floor: number) => unknown;
+  clearAnalytics: () => void;
+  openAnalytics: () => void;
 }
 
 export function installE2EHarness(game: Phaser.Game): void {
@@ -86,6 +96,15 @@ export function installE2EHarness(game: Phaser.Game): void {
     menuSelection: () => (game.scene.getScene('Menu') as MenuScene).getSelection(),
     runSetupSelection: () =>
       (game.scene.getScene('RunSetup') as RunSetupScene | undefined)?.getSelection() ?? null,
+    getCurrentSplit: () => (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState().currentSplit ?? null,
+    getNextSplit: () => (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState().nextSplit ?? null,
+    getCompletedSplits: () => (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState().completedSplits ?? [],
+    triggerSplit: (id) => (game.scene.getScene('Level') as LevelScene | undefined)?.triggerSplit(id) ?? null,
+    getLastSplitFeedback: () => (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState().lastSplitFeedback ?? null,
+    getCompletionOutcome: () => null,
+    getAnalytics: (floor) => new LocalAnalyticsService(false).load().floors[String(floor)] ?? null,
+    clearAnalytics: () => new LocalAnalyticsService(false).clear(),
+    openAnalytics: () => game.scene.start('Analytics'),
   };
 }
 

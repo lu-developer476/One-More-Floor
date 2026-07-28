@@ -15,6 +15,7 @@ export const Events = {
   MENU_CONFIRM: 'menu:confirm',
   DOOR_STATE: 'door:state',
   PAUSE_RESTART: 'pause:restart',
+  RUN_ABANDON: 'run:abandon',
   DEVICE_CHANGED: 'input:device-changed',
   BINDINGS_CHANGED: 'input:bindings-changed',
   DIALOG_OPENED: 'dialog:opened',

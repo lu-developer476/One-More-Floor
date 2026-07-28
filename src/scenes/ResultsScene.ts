@@ -22,8 +22,8 @@ export class ResultsScene extends Phaser.Scene {
       data.elapsedMs,
       data.deaths,
       rank,
-      {},
-      {},
+      data.splits,
+      data.segments,
       data.eligibility,
       data.ghostRun,
     );
@@ -54,7 +54,7 @@ export class ResultsScene extends Phaser.Scene {
           `RANGO  ${rank}  ·  MEJOR ${best?.rank ?? rank}`,
           level.name,
           `TIEMPO ${seconds(data.elapsedMs)} s  ·  MEJOR ${seconds(best?.bestTimeMs ?? data.elapsedMs)} s`,
-          `MEJOR ANTERIOR ${data.previousBestMs === null ? '--' : `${seconds(data.previousBestMs)} s`}`,
+          `SPLITS ${Object.keys(data.splits).length}/${level.splits.length} · SEGMENTOS MEJORADOS ${outcome.improvedSegments.length}`,
           `MUERTES ${data.deaths}  ·  MEJOR ${best?.fewestDeaths ?? data.deaths}`,
           nextRankGap(level, rank, data.elapsedMs, data.deaths),
           data.eligibility.status,
@@ -63,6 +63,7 @@ export class ResultsScene extends Phaser.Scene {
             : data.eligibility.ghost
               ? 'FANTASMA SIN CAMBIOS'
               : 'RESULTADO NO COMPETITIVO',
+          outcome.bestTheoreticalMs === null ? 'TEÓRICO --' : `TEÓRICO ${seconds(outcome.bestTheoreticalMs)} s`,
           data.final ? `TOTAL ${seconds(data.totalElapsedMs)} s` : '',
         ].filter(Boolean),
         {

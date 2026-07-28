@@ -1,7 +1,12 @@
 import type { GhostRun } from './GhostTypes';
 import { RunRecorder, type RunPose } from './RunRecorder';
 import { evaluateRunEligibility, type RunEligibility, type RunMode } from './RunEligibility';
-import { SplitTracker, type SplitTime } from './SplitTracker';
+import {
+  cumulativeSplitRecord,
+  segmentSplitRecord,
+  SplitTracker,
+  type SplitTime,
+} from './SplitTracker';
 import type { SplitDefinition } from '../types/game';
 
 export interface RunContext {
@@ -30,6 +35,8 @@ export interface AttemptResult {
   readonly deaths: number;
   readonly splits: readonly SplitTime[];
   readonly ghostRun: GhostRun;
+  readonly cumulativeSplits: Readonly<Record<string, number>>;
+  readonly segments: Readonly<Record<string, number>>;
 }
 
 export class AttemptSession {
@@ -92,13 +99,17 @@ export class AttemptSession {
     );
   }
   finish(): AttemptResult {
+    if (this.finished) throw new Error('AttemptSession.finish() called more than once');
     this.finished = true;
     this.running = false;
     const elapsedMs = Math.round(this.elapsed);
+    const splits = [...this.splits.completed];
     return Object.freeze({
       elapsedMs,
       deaths: this.deathEvents.length,
-      splits: [...this.splits.completed],
+      splits,
+      cumulativeSplits: Object.freeze(cumulativeSplitRecord(splits)),
+      segments: Object.freeze(segmentSplitRecord(splits)),
       ghostRun: this.recorder.finish(elapsedMs),
     });
   }

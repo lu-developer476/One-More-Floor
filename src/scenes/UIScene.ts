@@ -8,6 +8,7 @@ export class UIScene extends Phaser.Scene {
   private stats!: Phaser.GameObjects.Text;
   private dash!: Phaser.GameObjects.Text;
   private bar!: Phaser.GameObjects.Rectangle;
+  private splits!: Phaser.GameObjects.Text;
   constructor() {
     super('UI');
   }
@@ -19,6 +20,7 @@ export class UIScene extends Phaser.Scene {
     this.stats = this.add.text(930, 20, '', style).setOrigin(1, 0);
     this.dash = this.add.text(30, 495, 'DASH ●', style);
     this.bar = this.add.rectangle(480, 525, 0, 4, 0x5ef1ff).setOrigin(0, 0.5);
+    this.splits = this.add.text(930, 475, '', { ...style, fontSize: '14px', align: 'right' }).setOrigin(1, 0);
     eventBus.on(Events.HUD, this.onHud, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
   }
@@ -36,6 +38,12 @@ export class UIScene extends Phaser.Scene {
     this.dash
       .setText(data.dashReady ? 'DASH ●' : 'DASH ○')
       .setColor(data.dashReady ? '#5ef1ff' : '#667782');
+    const delta = data.lastDeltaMs === null ? 'SIN REFERENCIA' : `${data.lastDeltaMs < 0 ? '−' : '+'}${(Math.abs(data.lastDeltaMs) / 1000).toFixed(2)} s`;
+    this.splits.setText([
+      `PRÓXIMO ${data.nextSplit ?? 'META'}${data.nextReferenceMs === null ? '' : ` · PB ${(data.nextReferenceMs / 1000).toFixed(2)}`}`,
+      data.lastSplit ? `ÚLTIMO ${data.lastSplit.name} · ${delta}` : 'ÚLTIMO --',
+      data.bestTheoreticalMs === null ? 'TEÓRICO --' : `TEÓRICO ${(data.bestTheoreticalMs / 1000).toFixed(2)} s`,
+    ]);
     this.bar.setDisplaySize(930 * Phaser.Math.Clamp(data.progress, 0, 1), 4).setPosition(15, 525);
   }
   private shutdown(): void {

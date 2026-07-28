@@ -2,6 +2,9 @@ import type { DeathCause, RunContext } from '../runs/AttemptSession';
 
 const KEY = 'one-more-floor.analytics.v1';
 const MAX_SAMPLES = 100;
+const MAX_SEGMENTS = 32;
+const MAX_SOURCES = 64;
+const CAUSES: readonly DeathCause[] = ['spikes', 'laser', 'electricity', 'fall', 'collapse', 'crush', 'unknown'];
 export interface Aggregate {
   count: number;
   sum: number;
@@ -152,6 +155,25 @@ export const validateAnalytics = (raw: unknown): AnalyticsData => {
       if (Array.isArray(candidate.completionTimes))
         for (const time of candidate.completionTimes.slice(-MAX_SAMPLES))
           push(target.completionTimes, time, MAX_SAMPLES);
+      if (candidate.deathCauses && typeof candidate.deathCauses === 'object')
+        for (const [cause, count] of Object.entries(candidate.deathCauses))
+          if (CAUSES.includes(cause as DeathCause) && Number.isSafeInteger(count) && (count as number) >= 0)
+            target.deathCauses[cause as DeathCause] = count as number;
+      if (candidate.deathSources && typeof candidate.deathSources === 'object')
+        for (const [sourceId, count] of Object.entries(candidate.deathSources).slice(0, MAX_SOURCES))
+          if (id(sourceId) && Number.isSafeInteger(count) && (count as number) >= 0)
+            target.deathSources[sourceId] = count as number;
+      if (candidate.anchors && typeof candidate.anchors === 'object')
+        for (const [anchorId, count] of Object.entries(candidate.anchors).slice(0, MAX_SOURCES))
+          if (id(anchorId) && Number.isSafeInteger(count) && (count as number) >= 0)
+            target.anchors[anchorId] = count as number;
+      if (candidate.segmentTimes && typeof candidate.segmentTimes === 'object')
+        for (const [splitId, values] of Object.entries(candidate.segmentTimes).slice(0, MAX_SEGMENTS))
+          if (id(splitId) && Array.isArray(values)) {
+            const valid: number[] = [];
+            for (const time of values.slice(-50)) push(valid, time, 50);
+            target.segmentTimes[splitId] = valid;
+          }
       result.floors[key] = target;
     }
   return result;
