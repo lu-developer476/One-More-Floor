@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 test('production keyboard opens Tower Setup without console errors', async ({ page }) => {
   const errors: string[] = [];
   page.on('console', (message) => {

@@ -16,6 +16,7 @@ export interface TowerCheckpoint {
   totalElapsedMs: number;
   totalDeaths: number;
   results: TowerFloorResult[];
+  /** Compatibility field. restore() always derives this value from mode. */
   eligible: boolean;
   sessionId: string;
 }
@@ -52,7 +53,6 @@ export class TowerRunSession {
       d.nextFloor > LEVELS.length ||
       !integer(d.totalElapsedMs) ||
       !integer(d.totalDeaths) ||
-      typeof d.eligible !== 'boolean' ||
       typeof d.sessionId !== 'string' ||
       !/^[a-z0-9-]{8,100}$/.test(d.sessionId) ||
       !Array.isArray(d.results) ||
@@ -87,10 +87,19 @@ export class TowerRunSession {
       time !== d.totalElapsedMs ||
       deaths !== d.totalDeaths ||
       (d.status !== 'completed' && d.nextFloor !== results.length + 1) ||
-      (d.status === 'completed' && results.length !== LEVELS.length)
+      (d.status === 'completed' &&
+        (results.length !== LEVELS.length || d.nextFloor !== LEVELS.length)) ||
+      (d.status === 'active' && results.length >= LEVELS.length) ||
+      (d.status === 'between-floors' &&
+        (results.length === 0 || results.length >= LEVELS.length)) ||
+      (d.status === 'abandoned' && results.length >= LEVELS.length)
     )
       return null;
-    return new TowerRunSession({ ...(d as TowerCheckpoint), results });
+    return new TowerRunSession({
+      ...(d as TowerCheckpoint),
+      eligible: d.mode === 'competitive',
+      results,
+    });
   }
   get state(): Readonly<TowerCheckpoint> {
     return this.serialize();

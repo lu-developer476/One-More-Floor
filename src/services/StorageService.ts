@@ -19,9 +19,12 @@ export interface TowerRecord {
   completed: boolean;
   bestTimeMs: number | null;
   fewestDeaths: number | null;
-  rank: Rank | null;
-  bestFloorTimes: Record<string, number>;
-  bestCumulativeTimes: Record<string, number>;
+  bestRank: Rank | null;
+  bestRunFloorTimes: Record<string, number>;
+  bestRunCumulativeTimes: Record<string, number>;
+  bestRunDeaths: number | null;
+  bestRunRank: Rank | null;
+  bestIndividualFloorTimes: Record<string, number>;
 }
 export interface Settings {
   volume: number;
@@ -35,7 +38,7 @@ export interface Settings {
   localAnalyticsEnabled: boolean;
 }
 export interface SaveData {
-  version: 7;
+  version: 8;
   unlockedFloor: number;
   floors: Record<string, FloorRecord>;
   settings: Settings;
@@ -60,9 +63,23 @@ export interface CompletionOutcome extends RecordFloorResult {
   improvedSegments: readonly string[];
   bestTheoreticalMs: number | null;
 }
+export interface TowerCompletionOutcome {
+  save: SaveData;
+  persisted: boolean;
+  eligible: boolean;
+  newBestTime: boolean;
+  deathsImproved: boolean;
+  rankImproved: boolean;
+  previousBestTimeMs: number | null;
+  currentBestTimeMs: number | null;
+  bestRunReplaced: boolean;
+  improvedIndividualFloors: readonly number[];
+}
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
-const KEY = 'one-more-floor.save.v7';
+export const SAVE_KEY = 'one-more-floor.save.v8';
+const KEY = SAVE_KEY;
 const OLD_KEYS = [
+  'one-more-floor.save.v7',
   'one-more-floor.save.v6',
   'one-more-floor.save.v5',
   'one-more-floor.save.v4',
@@ -82,7 +99,7 @@ const defaultSettings = (): Settings => ({
   localAnalyticsEnabled: true,
 });
 const defaults = (): SaveData => ({
-  version: 7,
+  version: 8,
   unlockedFloor: 1,
   floors: {},
   settings: defaultSettings(),
@@ -93,9 +110,12 @@ export const defaultTower = (): TowerRecord => ({
   completed: false,
   bestTimeMs: null,
   fewestDeaths: null,
-  rank: null,
-  bestFloorTimes: {},
-  bestCumulativeTimes: {},
+  bestRank: null,
+  bestRunFloorTimes: {},
+  bestRunCumulativeTimes: {},
+  bestRunDeaths: null,
+  bestRunRank: null,
+  bestIndividualFloorTimes: {},
 });
 const finite = (value: unknown, min: number, max = Number.MAX_SAFE_INTEGER): number | null =>
   typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max
@@ -125,14 +145,15 @@ export class StorageService {
     this.save(legacy);
     return legacy;
   }
-  save(data: SaveData): void {
+  save(data: SaveData): boolean {
     try {
       this.storage?.setItem(
         KEY,
         JSON.stringify(validate(data as unknown as Record<string, unknown>)),
       );
+      return Boolean(this.storage);
     } catch {
-      /* quota/private mode */
+      return false;
     }
   }
   recordFloor(
@@ -264,14 +285,31 @@ export class StorageService {
     deaths: number,
     rank: Rank,
     results: readonly { floor: number; elapsedMs: number; cumulativeTowerMs: number }[],
-  ): { save: SaveData; newBestTime: boolean } {
+    eligible = true,
+  ): TowerCompletionOutcome {
     const data = this.load();
-    if (results.length !== TOTAL_FLOORS || finite(time, 1) === null || finite(deaths, 0) === null)
-      return { save: data, newBestTime: false };
+    const invalid =
+      results.length !== TOTAL_FLOORS || finite(time, 1) === null || finite(deaths, 0) === null;
+    const base = (persisted = false): TowerCompletionOutcome => ({
+      save: data,
+      persisted,
+      eligible,
+      newBestTime: false,
+      deathsImproved: false,
+      rankImproved: false,
+      previousBestTimeMs: data.tower.bestTimeMs,
+      currentBestTimeMs: data.tower.bestTimeMs,
+      bestRunReplaced: false,
+      improvedIndividualFloors: [],
+    });
+    if (invalid || !eligible) return base();
     const old = data.tower;
     const newBestTime = old.bestTimeMs === null || time < old.bestTimeMs;
-    const bestFloorTimes = { ...old.bestFloorTimes },
-      bestCumulativeTimes = { ...old.bestCumulativeTimes };
+    const bestIndividualFloorTimes = { ...old.bestIndividualFloorTimes };
+    const floorTimes: Record<string, number> = {};
+    const cumulativeTimes: Record<string, number> = {};
+    const improvedIndividualFloors: number[] = [];
+    let cumulative = 0;
     for (const result of results) {
       const key = String(result.floor);
       if (
@@ -280,26 +318,51 @@ export class StorageService {
         finite(result.elapsedMs, 1) === null ||
         finite(result.cumulativeTowerMs, 1) === null
       )
-        return { save: data, newBestTime: false };
-      bestFloorTimes[key] = Math.min(
-        bestFloorTimes[key] ?? Number.MAX_SAFE_INTEGER,
-        result.elapsedMs,
-      );
-      bestCumulativeTimes[key] = Math.min(
-        bestCumulativeTimes[key] ?? Number.MAX_SAFE_INTEGER,
-        result.cumulativeTowerMs,
-      );
+        return base();
+      cumulative += result.elapsedMs;
+      if (
+        result.floor !== Object.keys(floorTimes).length + 1 ||
+        result.cumulativeTowerMs !== cumulative
+      )
+        return base();
+      floorTimes[key] = result.elapsedMs;
+      cumulativeTimes[key] = result.cumulativeTowerMs;
+      if (
+        bestIndividualFloorTimes[key] === undefined ||
+        result.elapsedMs < bestIndividualFloorTimes[key]
+      ) {
+        bestIndividualFloorTimes[key] = result.elapsedMs;
+        improvedIndividualFloors.push(result.floor);
+      }
     }
+    if (cumulative !== time) return base();
+    const deathsImproved = old.fewestDeaths === null || deaths < old.fewestDeaths;
+    const nextRank = betterRank(old.bestRank, rank);
+    const rankImproved = nextRank !== old.bestRank;
     data.tower = {
       completed: true,
       bestTimeMs: newBestTime ? time : old.bestTimeMs,
       fewestDeaths: old.fewestDeaths === null ? deaths : Math.min(old.fewestDeaths, deaths),
-      rank: betterRank(old.rank, rank),
-      bestFloorTimes,
-      bestCumulativeTimes,
+      bestRank: nextRank,
+      bestRunFloorTimes: newBestTime ? floorTimes : old.bestRunFloorTimes,
+      bestRunCumulativeTimes: newBestTime ? cumulativeTimes : old.bestRunCumulativeTimes,
+      bestRunDeaths: newBestTime ? deaths : old.bestRunDeaths,
+      bestRunRank: newBestTime ? rank : old.bestRunRank,
+      bestIndividualFloorTimes,
     };
-    this.save(data);
-    return { save: data, newBestTime };
+    const persisted = this.save(data);
+    return {
+      save: data,
+      persisted,
+      eligible,
+      newBestTime,
+      deathsImproved,
+      rankImproved,
+      previousBestTimeMs: old.bestTimeMs,
+      currentBestTimeMs: data.tower.bestTimeMs,
+      bestRunReplaced: newBestTime,
+      improvedIndividualFloors,
+    };
   }
   private parse(raw: string | null): Record<string, unknown> | null {
     if (!raw) return null;
@@ -372,13 +435,19 @@ export const validateTower = (raw: unknown): TowerRecord => {
         output[key] = item as number;
     return output;
   };
+  const legacyIndividual = times(value.bestFloorTimes);
   return {
     completed: value.completed === true,
     bestTimeMs: finite(value.bestTimeMs, 1),
     fewestDeaths: finite(value.fewestDeaths, 0),
-    rank: validRank(value.rank),
-    bestFloorTimes: times(value.bestFloorTimes),
-    bestCumulativeTimes: times(value.bestCumulativeTimes),
+    bestRank: validRank(value.bestRank) ?? validRank(value.rank),
+    bestRunFloorTimes: times(value.bestRunFloorTimes),
+    bestRunCumulativeTimes: times(value.bestRunCumulativeTimes),
+    bestRunDeaths: finite(value.bestRunDeaths, 0),
+    bestRunRank: validRank(value.bestRunRank),
+    bestIndividualFloorTimes: Object.keys(times(value.bestIndividualFloorTimes)).length
+      ? times(value.bestIndividualFloorTimes)
+      : legacyIndividual,
   };
 };
 const migrateLegacy = (old: Record<string, unknown> | null): SaveData => {

@@ -13,7 +13,7 @@ import {
   isValidKeyCode,
   swapBinding,
 } from '../input/InputValidation';
-import { formatKey } from '../input/InputPromptFormatter';
+import { formatKey, formatPrompt } from '../input/InputPromptFormatter';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { eventBus, Events } from '../utils/EventBus';
 const editable: readonly Action[] = [
@@ -61,12 +61,17 @@ export class ControlsScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(480, 455, 'TAB: TECLADO/GAMEPAD · ←→ DEADZONE/ESTILO\nR: RESTAURAR · ESC: VOLVER', {
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        color: '#91a6b6',
-        align: 'center',
-      })
+      .text(
+        480,
+        455,
+        `TAB: TECLADO/GAMEPAD · ←→ DEADZONE/ESTILO\n${formatPrompt(InputAction.RESTART, this.device, this.settings)} RESTAURAR · ${formatPrompt(InputAction.BACK, this.device, this.settings)} VOLVER`,
+        {
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          color: '#91a6b6',
+          align: 'center',
+        },
+      )
       .setOrigin(0.5);
     this.render();
     document.addEventListener('keydown', this.onUtilityKey);
@@ -96,7 +101,7 @@ export class ControlsScene extends Phaser.Scene {
     this.capture = true;
     this.message.setText(
       this.device === 'keyboard'
-        ? 'PRESIONÁ UNA TECLA · ESC CANCELA'
+        ? `PRESIONÁ UNA TECLA · ${formatPrompt(InputAction.BACK, this.device, this.settings)} CANCELA`
         : 'PRESIONÁ UN BOTÓN · B CANCELA',
     );
     if (this.device === 'keyboard') this.input.keyboard!.once('keydown', this.captureKey, this);

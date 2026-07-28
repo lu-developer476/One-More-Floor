@@ -52,6 +52,7 @@ export interface E2EHarness {
   openTowerResults: () => void;
   getMenuItemBounds: () => unknown;
   getFocusedAction: () => number;
+  getMenuActions: () => readonly string[];
 }
 
 export function installE2EHarness(game: Phaser.Game): void {
@@ -110,26 +111,54 @@ export function installE2EHarness(game: Phaser.Game): void {
     menuSelection: () => (game.scene.getScene('Menu') as MenuScene).getSelection(),
     runSetupSelection: () =>
       (game.scene.getScene('RunSetup') as RunSetupScene | undefined)?.getSelection() ?? null,
-    getCurrentSplit: () => (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState().currentSplit ?? null,
-    getNextSplit: () => (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState().nextSplit ?? null,
-    getCompletedSplits: () => (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState().completedSplits ?? [],
-    triggerSplit: (id) => (game.scene.getScene('Level') as LevelScene | undefined)?.triggerSplit(id) ?? null,
-    getLastSplitFeedback: () => (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState().lastSplitFeedback ?? null,
+    getCurrentSplit: () =>
+      (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState().currentSplit ?? null,
+    getNextSplit: () =>
+      (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState().nextSplit ?? null,
+    getCompletedSplits: () =>
+      (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState().completedSplits ?? [],
+    triggerSplit: (id) =>
+      (game.scene.getScene('Level') as LevelScene | undefined)?.triggerSplit(id) ?? null,
+    getLastSplitFeedback: () =>
+      (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState().lastSplitFeedback ??
+      null,
     getCompletionOutcome: () => null,
     getAnalytics: (floor) => new LocalAnalyticsService(false).load().floors[String(floor)] ?? null,
     clearAnalytics: () => new LocalAnalyticsService(false).clear(),
     openAnalytics: () => game.scene.start('Analytics'),
-    startTower: (mode) => { const session=TowerRunSession.start(mode);new TowerCheckpointService().save(session);game.scene.start('Level',createTowerFloorRunData(0,mode,session.state.sessionId,true)); },
+    startTower: (mode) => {
+      const session = TowerRunSession.start(mode);
+      new TowerCheckpointService().save(session);
+      game.scene.start('Level', createTowerFloorRunData(0, mode, session.state.sessionId, true));
+    },
     getTowerState: () => new TowerCheckpointService().load()?.state ?? null,
     getTowerCheckpoint: () => new TowerCheckpointService().raw(),
     completeCurrentTowerFloor: () => game.scene.getScene('Level').events.emit('e2e:complete'),
-    abandonTower: () => { new TowerCheckpointService().clear(); game.scene.start('Menu'); },
-    resumeTower: () => { const session=new TowerCheckpointService().load();if(!session)return;if(session.state.status==='between-floors')session.advance();new TowerCheckpointService().save(session);game.scene.start('Level',createTowerFloorRunData(session.state.nextFloor-1,session.state.mode,session.state.sessionId,true)); },
+    abandonTower: () => {
+      new TowerCheckpointService().clear();
+      game.scene.start('Menu');
+    },
+    resumeTower: () => {
+      const session = new TowerCheckpointService().load();
+      if (!session) return;
+      if (session.state.status === 'between-floors') session.advance();
+      new TowerCheckpointService().save(session);
+      game.scene.start(
+        'Level',
+        createTowerFloorRunData(
+          session.state.nextFloor - 1,
+          session.state.mode,
+          session.state.sessionId,
+          true,
+        ),
+      );
+    },
     getTowerRecord: () => new StorageService().load().tower,
-    openFloorSelect: () => game.scene.start('FloorSelect',{practice:false}),
+    openFloorSelect: () => game.scene.start('FloorSelect', { practice: false }),
     openTowerResults: () => game.scene.start('TowerResults'),
     getMenuItemBounds: () => (game.scene.getScene('Menu') as MenuScene).getItemBounds(),
     getFocusedAction: () => (game.scene.getScene('Menu') as MenuScene).getSelection(),
+    getMenuActions: () => (game.scene.getScene('Menu') as MenuScene).getActions(),
   };
 }
 

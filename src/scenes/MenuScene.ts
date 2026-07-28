@@ -6,16 +6,24 @@ import { formatPrompt } from '../input/InputPromptFormatter';
 import { TowerCheckpointService } from '../runs/TowerCheckpointService';
 import { createTowerFloorRunData } from '../runs/RunContext';
 import { LEVELS } from '../config/levelConfig';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { TowerRunCoordinator } from '../runs/TowerRunCoordinator';
+import { audioService } from '../services/AudioService';
 export class MenuScene extends Phaser.Scene {
   private selected = 0;
   private items: Phaser.GameObjects.Text[] = [];
   private manager!: InputManager;
   private actions: string[] = [];
+  private dialog?: ConfirmDialog;
+  private transitioning = false;
   constructor() {
     super('Menu');
   }
   getSelection(): number {
     return this.selected;
+  }
+  getActions(): readonly string[] {
+    return this.actions;
   }
   getItemBounds() {
     return this.items.map((item) => {
@@ -39,7 +47,7 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(480, 100, 'TOWER RUN · v0.9.0', {
+      .text(480, 100, 'TOWER RUN · v0.9.1', {
         fontFamily: 'monospace',
         fontSize: '15px',
         color: '#f5c84c',
@@ -73,7 +81,7 @@ export class MenuScene extends Phaser.Scene {
       this.add.text(
         730,
         160,
-        `PISO ${checkpoint.state.nextFloor} DE ${LEVELS.length}\nTIEMPO ${(checkpoint.state.totalElapsedMs / 1000).toFixed(2)} s\nMUERTES ${checkpoint.state.totalDeaths}`,
+        `${checkpoint.state.mode === 'competitive' ? 'COMPETITIVO' : 'ASISTIDO'}\nPISO ${checkpoint.state.nextFloor} DE ${LEVELS.length}\nCOMPLETADOS ${checkpoint.state.results.length}\nTIEMPO ${(checkpoint.state.totalElapsedMs / 1000).toFixed(2)} s\nMUERTES ${checkpoint.state.totalDeaths}`,
         { fontFamily: 'monospace', fontSize: '13px', color: '#d9e7ed' },
       );
     this.add
@@ -89,11 +97,14 @@ export class MenuScene extends Phaser.Scene {
   }
   update(): void {
     this.manager.poll();
+    this.dialog?.update(this.manager);
+    if (this.dialog || this.transitioning) return;
     if (this.manager.wasPressed(InputAction.MENU_UP))
       this.select((this.selected + this.items.length - 1) % this.items.length);
     if (this.manager.wasPressed(InputAction.MENU_DOWN))
       this.select((this.selected + 1) % this.items.length);
     if (this.manager.wasPressed(InputAction.CONFIRM)) this.confirm();
+    if (this.manager.wasPressed(InputAction.BACK)) audioService.play('menuMove');
   }
   private select(i: number): void {
     this.selected = i;
@@ -101,21 +112,37 @@ export class MenuScene extends Phaser.Scene {
   }
   private confirm(): void {
     const action = this.actions[this.selected];
-    if (action === 'TOWER RUN' || action === 'NUEVA TOWER RUN') this.scene.start('TowerSetup');
+    if (action === 'TOWER RUN') this.start('TowerSetup');
+    else if (action === 'NUEVA TOWER RUN')
+      this.confirmDestructive(
+        'NUEVA TOWER RUN',
+        'Existe una Tower Run pendiente.\nComenzar otra eliminará su checkpoint.',
+        () => {
+          new TowerRunCoordinator().abandon();
+          this.start('TowerSetup');
+        },
+      );
     else if (action === 'CONTINUAR TOWER RUN') {
       const s = new TowerCheckpointService().load();
       if (s) {
         if (s.state.status === 'between-floors') s.advance();
         new TowerCheckpointService().save(s);
+        this.transitioning = true;
         this.scene.start(
           'Level',
           createTowerFloorRunData(s.state.nextFloor - 1, s.state.mode, s.state.sessionId),
         );
       }
-    } else if (action === 'ABANDONAR TOWER RUN') {
-      new TowerCheckpointService().clear();
-      this.scene.restart();
-    } else if (action === 'PISOS') this.scene.start('FloorSelect', { practice: false });
+    } else if (action === 'ABANDONAR TOWER RUN')
+      this.confirmDestructive(
+        'ABANDONAR TOWER RUN',
+        'Se eliminará el checkpoint pendiente.',
+        () => {
+          new TowerRunCoordinator().abandon();
+          this.scene.restart();
+        },
+      );
+    else if (action === 'PISOS') this.scene.start('FloorSelect', { practice: false });
     else if (action === 'PRÁCTICA') this.scene.start('FloorSelect', { practice: true });
     else if (action === 'ESTADÍSTICAS') this.scene.start('Analytics');
     else if (action === 'AJUSTES') this.scene.start('Settings');
@@ -127,5 +154,24 @@ export class MenuScene extends Phaser.Scene {
           color: '#fff',
         })
         .setOrigin(0.5);
+  }
+  private start(scene: string): void {
+    if (this.transitioning) return;
+    this.transitioning = true;
+    this.scene.start(scene);
+  }
+  private confirmDestructive(title: string, description: string, confirm: () => void): void {
+    this.dialog = new ConfirmDialog(
+      this,
+      title,
+      description,
+      () => {
+        this.dialog = undefined;
+        confirm();
+      },
+      () => {
+        this.dialog = undefined;
+      },
+    );
   }
 }

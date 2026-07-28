@@ -102,7 +102,7 @@ export class AnalyticsScene extends Phaser.Scene {
         'TORRE',
         `INTENTOS ${tower.attempts} · COMPLETADAS ${tower.completed}`,
         `TASA ${rate === null ? 'MUESTRA INSUFICIENTE' : `${(rate * 100).toFixed(1)}%`}`,
-        `PB GLOBAL ${save.tower.bestTimeMs ? `${(save.tower.bestTimeMs / 1000).toFixed(2)} s` : '--'} · RANGO ${save.tower.rank ?? '--'}`,
+        `PB GLOBAL ${save.tower.bestTimeMs ? `${(save.tower.bestTimeMs / 1000).toFixed(2)} s` : '--'} · RANGO ${save.tower.bestRank ?? '--'}`,
         `MEDIANA ${med === null || tower.completed < 2 ? 'MUESTRA INSUFICIENTE' : `${(med / 1000).toFixed(2)} s`}`,
         `MUERTES PROMEDIO ${tower.completed ? (tower.totalDeaths / tower.completed).toFixed(1) : 'MUESTRA INSUFICIENTE'}`,
         `PISO MÁS LETAL ${topEntry(tower.deathsByFloor) ?? 'MUESTRA INSUFICIENTE'}`,

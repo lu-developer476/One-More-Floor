@@ -10,15 +10,19 @@ import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
 import { formatPrompt } from '../input/InputPromptFormatter';
 import { LocalAnalyticsService } from '../analytics/LocalAnalyticsService';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
+import { TowerRunCoordinator } from '../runs/TowerRunCoordinator';
 export class TowerFloorResultsScene extends Phaser.Scene {
   private manager!: InputManager;
-  private data!: ResultData;
+  private resultData!: ResultData;
   private final = false;
+  private dialog?: ConfirmDialog;
+  private transitioning = false;
   constructor() {
     super('TowerFloorResults');
   }
   create(data: ResultData): void {
-    this.data = data;
+    this.resultData = data;
     const level = LEVELS[data.levelIndex];
     if (!level) throw new Error('Invalid result');
     const checkpoints = new TowerCheckpointService(),
@@ -46,13 +50,13 @@ export class TowerFloorResultsScene extends Phaser.Scene {
     session.completeFloor(data.floor, data.elapsedMs, data.deaths, rank);
     this.final = data.floor === LEVELS.length;
     if (this.final) {
-      if (session.state.eligible)
-        storage.recordTower(
-          session.state.totalElapsedMs,
-          session.state.totalDeaths,
-          calculateTowerRank(session.state.totalElapsedMs, session.state.totalDeaths),
-          session.state.results,
-        );
+      const towerOutcome = storage.recordTower(
+        session.state.totalElapsedMs,
+        session.state.totalDeaths,
+        calculateTowerRank(session.state.totalElapsedMs, session.state.totalDeaths),
+        session.state.results,
+        session.state.eligible,
+      );
       const save = storage.load();
       new LocalAnalyticsService(save.settings.localAnalyticsEnabled).towerComplete(
         session.state.totalElapsedMs,
@@ -60,10 +64,11 @@ export class TowerFloorResultsScene extends Phaser.Scene {
         Object.fromEntries(session.state.results.map((item) => [String(item.floor), item.deaths])),
       );
       checkpoints.clear();
-      this.scene.start('Ending', { checkpoint: session.serialize() });
+      this.transitioning = true;
+      this.scene.start('Ending', { checkpoint: session.serialize(), outcome: towerOutcome });
       return;
     }
-    checkpoints.save(session);
+    const checkpointOutcome = checkpoints.save(session);
     const save = storage.load();
     this.manager = new InputManager(this, save.input);
     this.manager.blockInherited();
@@ -88,6 +93,7 @@ export class TowerFloorResultsScene extends Phaser.Scene {
           outcome.newBestTime ? 'NUEVO PB INDIVIDUAL' : 'PB INDIVIDUAL SIN CAMBIOS',
           `SEGMENTOS MEJORADOS ${outcome.improvedSegments.length}`,
           outcome.ghostSaved ? 'GHOST GUARDADO' : 'GHOST SIN CAMBIOS',
+          checkpointOutcome.saved ? 'PARTIDA GUARDADA' : 'NO SE PUDO GUARDAR EL CHECKPOINT',
         ].join('\n'),
         {
           fontFamily: 'monospace',
@@ -111,25 +117,31 @@ export class TowerFloorResultsScene extends Phaser.Scene {
   update(): void {
     if (!this.manager || this.final) return;
     this.manager.poll();
+    this.dialog?.update(this.manager);
+    if (this.dialog || this.transitioning) return;
     if (this.manager.wasPressed(InputAction.CONFIRM)) {
       const service = new TowerCheckpointService(),
         session = service.load();
       if (!session) return;
       session.advance();
       service.save(session);
-      this.scene.start('Level', createNextTowerFloorData(this.data.context));
+      this.transitioning = true;
+      this.scene.start('Level', createNextTowerFloorData(this.resultData.context));
     } else if (this.manager.wasPressed(InputAction.BACK)) {
-      const service = new TowerCheckpointService(),
-        session = service.load();
-      if (session) {
-        const save = new StorageService().load();
-        new LocalAnalyticsService(save.settings.localAnalyticsEnabled).towerAbandon(
-          session.state.nextFloor,
-        );
-        session.abandon();
-      }
-      service.clear();
-      this.scene.start('Menu');
+      this.dialog = new ConfirmDialog(
+        this,
+        'ABANDONAR TOWER RUN',
+        'Se eliminará el checkpoint pendiente.',
+        () => {
+          this.dialog = undefined;
+          new TowerRunCoordinator().abandon();
+          this.transitioning = true;
+          this.scene.start('Menu');
+        },
+        () => {
+          this.dialog = undefined;
+        },
+      );
     }
   }
 }

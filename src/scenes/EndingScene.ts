@@ -2,17 +2,24 @@ import Phaser from 'phaser';
 import type { TowerCheckpoint } from '../runs/TowerRunSession';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
-import { StorageService } from '../services/StorageService';
+import { StorageService, type TowerCompletionOutcome } from '../services/StorageService';
+import { formatPrompt } from '../input/InputPromptFormatter';
 export class EndingScene extends Phaser.Scene {
   private manager!: InputManager;
   private done = false;
   private checkpoint!: TowerCheckpoint;
+  private outcome!: TowerCompletionOutcome;
+  private prompt!: Phaser.GameObjects.Text;
+  private bindings!: ReturnType<StorageService['load']>['input'];
+  private lastDevice = '';
   constructor() {
     super('Ending');
   }
-  create(data: { checkpoint: TowerCheckpoint }): void {
+  create(data: { checkpoint: TowerCheckpoint; outcome: TowerCompletionOutcome }): void {
     this.checkpoint = data.checkpoint;
+    this.outcome = data.outcome;
     const save = new StorageService().load();
+    this.bindings = save.input;
     this.manager = new InputManager(this, save.input);
     this.manager.blockInherited();
     this.cameras.main.setBackgroundColor('#050b12');
@@ -24,13 +31,15 @@ export class EndingScene extends Phaser.Scene {
         color: '#ffffff',
       })
       .setOrigin(0.5);
-    this.add
-      .text(480, 500, 'CONFIRMAR · SALTAR', {
+    this.prompt = this.add
+      .text(480, 500, '', {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#91a6b6',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setInteractive()
+      .on('pointerdown', () => this.finish());
     this.tweens.add({
       targets: lift,
       y: 145,
@@ -39,15 +48,25 @@ export class EndingScene extends Phaser.Scene {
       onComplete: () => this.finish(),
     });
     this.time.delayedCall(8200, () => this.finish());
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.manager.destroy());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.manager.destroy();
+      this.tweens.killAll();
+      this.time.removeAllEvents();
+    });
   }
   update(): void {
     this.manager.poll();
+    if (this.lastDevice !== this.manager.activeDevice) {
+      this.lastDevice = this.manager.activeDevice;
+      this.prompt.setText(
+        `${formatPrompt(InputAction.CONFIRM, this.manager.activeDevice, this.bindings)} SALTAR`,
+      );
+    }
     if (this.manager.wasPressed(InputAction.CONFIRM)) this.finish();
   }
   private finish(): void {
     if (this.done) return;
     this.done = true;
-    this.scene.start('TowerResults', { checkpoint: this.checkpoint });
+    this.scene.start('TowerResults', { checkpoint: this.checkpoint, outcome: this.outcome });
   }
 }

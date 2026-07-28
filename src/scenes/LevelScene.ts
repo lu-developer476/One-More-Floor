@@ -389,7 +389,7 @@ export class LevelScene extends Phaser.Scene {
     if (this.scene.isActive('Pause')) return;
     audioService.pause();
     this.scene.pause();
-    this.scene.launch('Pause');
+    this.scene.launch('Pause', { context: this.context });
   }
 
   private onLand(x: number, y: number, kind: 'soft' | 'hard'): void {
