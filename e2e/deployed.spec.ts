@@ -8,8 +8,9 @@ test('deployment accepts real browser navigation and gameplay keys', async ({ pa
   page.on('pageerror', (error) => errors.push(error.message));
   const response = await page.goto('/');
   expect(response?.ok()).toBe(true);
+  expect(await page.title()).toBe('One More Floor');
   await expect(page.locator('canvas')).toBeVisible();
-  await expect(page.locator('#game')).toHaveAttribute('aria-label', /v1\.0\.0/);
+  await expect(page.locator('#game')).toHaveAttribute('aria-label', /v1\.0\.1/);
   await page.keyboard.press('Escape');
   for (const key of [
     'ArrowDown',

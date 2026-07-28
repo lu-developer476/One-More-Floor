@@ -1,5 +1,10 @@
 export const MAX_ENVIRONMENT_DELTA_SECONDS = 0.05;
 
+export function ballisticJumpHeight(speed: number, gravity: number): number {
+  if (gravity <= 0) throw new RangeError('gravity must be positive');
+  return (speed * speed) / (2 * gravity);
+}
+
 export function clampDeltaSeconds(deltaSeconds: number): number {
   return Math.max(0, Math.min(MAX_ENVIRONMENT_DELTA_SECONDS, deltaSeconds));
 }

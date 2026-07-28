@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { acceleratedVelocity, classifyLanding, conveyorVelocity } from './PhysicsMath';
+import {
+  acceleratedVelocity,
+  ballisticJumpHeight,
+  classifyLanding,
+  conveyorVelocity,
+} from './PhysicsMath';
 
 describe('frame-independent environment math', () => {
   it('produces equivalent acceleration over one second at common frame rates', () => {
@@ -20,5 +25,14 @@ describe('frame-independent environment math', () => {
   it('classifies landings from pre-impact velocity', () => {
     expect(classifyLanding(220)).toBe('soft');
     expect(classifyLanding(520)).toBe('hard');
+  });
+  it('shows the v1.0.1 jump and wall jump are theoretically higher', () => {
+    expect(ballisticJumpHeight(620, 1520)).toBeCloseTo(126.45, 2);
+    expect(ballisticJumpHeight(590, 1520)).toBeCloseTo(114.51, 2);
+    expect(ballisticJumpHeight(620, 1520)).toBeGreaterThan(ballisticJumpHeight(535, 1520));
+    expect(ballisticJumpHeight(590, 1520)).toBeGreaterThan(ballisticJumpHeight(505, 1520));
+  });
+  it('rejects non-physical gravity', () => {
+    expect(() => ballisticJumpHeight(620, 0)).toThrow(RangeError);
   });
 });

@@ -5,6 +5,7 @@ test('production keyboard opens Tower Setup without console errors', async ({ pa
     if (message.type() === 'error') errors.push(message.text());
   });
   await page.goto('/');
+  expect(await page.title()).toBe('One More Floor');
   await expect(page.locator('canvas')).toBeVisible();
   await page.keyboard.press('Enter');
   await expect
