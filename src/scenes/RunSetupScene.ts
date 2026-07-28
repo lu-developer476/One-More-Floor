@@ -12,6 +12,9 @@ export class RunSetupScene extends Phaser.Scene {
   constructor() {
     super('RunSetup');
   }
+  getSelection(): { mode: number; anchor: number } {
+    return { mode: this.mode, anchor: this.anchor };
+  }
   init(data: { levelIndex: number }) {
     this.floor = data.levelIndex;
   }
@@ -36,6 +39,7 @@ export class RunSetupScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.render();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.inputManager.destroy());
   }
   update() {
     this.inputManager.poll();

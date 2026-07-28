@@ -17,6 +17,9 @@ export class MenuScene extends Phaser.Scene {
   constructor() {
     super('Menu');
   }
+  getSelection(): number {
+    return this.selected;
+  }
 
   create(): void {
     const save = new StorageService().load();
@@ -39,7 +42,7 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(480, 137, 'INPUT + PRÁCTICA · v0.6.0', {
+      .text(480, 137, 'HOTFIX DE TECLADO · v0.7.1', {
         fontFamily: 'monospace',
         fontSize: '15px',
         color: '#f5c84c',
@@ -81,6 +84,16 @@ export class MenuScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
     this.select(0);
+    if (sessionStorage.getItem('one-more-floor.controls-restored') === '1') {
+      sessionStorage.removeItem('one-more-floor.controls-restored');
+      this.add
+        .text(480, 165, 'CONTROLES RESTAURADOS', {
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          color: '#7dff9b',
+        })
+        .setOrigin(0.5);
+    }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
   }
 
@@ -137,6 +150,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private shutdown(): void {
+    this.manager.destroy();
     for (const item of this.items) {
       item.off('pointerover', this.onPointerOver, this);
       item.off('pointerdown', this.onPointerDown, this);

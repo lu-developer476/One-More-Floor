@@ -31,6 +31,7 @@ export class ResultsScene extends Phaser.Scene {
     this.manager = new InputManager(this, service.load().input);
     this.manager.blockInherited();
     this.resultData = data;
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.manager?.destroy());
     this.cameras.main.setBackgroundColor('#0c1119');
     const heading = this.add
       .text(480, 82, data.final ? 'EVACUACIÓN COMPLETA' : 'PISO COMPLETADO', {

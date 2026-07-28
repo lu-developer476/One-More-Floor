@@ -69,6 +69,8 @@ export class ControlsScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.render();
+    document.addEventListener('keydown', this.onUtilityKey);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
   }
   update() {
     this.manager.poll();
@@ -80,11 +82,16 @@ export class ControlsScene extends Phaser.Scene {
       this.selected = (this.selected + 1) % editable.length;
     if (this.manager.wasPressed(InputAction.CONFIRM)) this.beginCapture();
     if (this.manager.wasPressed(InputAction.BACK)) this.back();
-    if (Phaser.Input.Keyboard.JustDown(this.input.keyboard!.addKey('TAB')))
-      this.device = this.device === 'keyboard' ? 'gamepad' : 'keyboard';
-    if (Phaser.Input.Keyboard.JustDown(this.input.keyboard!.addKey('R'))) this.restore();
     this.render();
   }
+  private onUtilityKey = (event: KeyboardEvent): void => {
+    if (event.repeat || this.capture || this.dialog) return;
+    if (event.code === 'Tab') {
+      event.preventDefault();
+      this.device = this.device === 'keyboard' ? 'gamepad' : 'keyboard';
+      this.render();
+    } else if (event.code === 'KeyR') this.restore();
+  };
   private beginCapture() {
     this.capture = true;
     this.message.setText(
@@ -135,7 +142,7 @@ export class ControlsScene extends Phaser.Scene {
     save.input = this.settings;
     this.service.save(save);
     eventBus.emit(Events.BINDINGS_CHANGED, this.settings);
-    this.manager.settings = this.settings;
+    this.manager.setSettings(this.settings);
     this.render();
   }
   private render() {
@@ -158,5 +165,10 @@ export class ControlsScene extends Phaser.Scene {
     this.scene.stop();
     if (this.scene.isPaused('Pause')) this.scene.resume('Pause');
     else this.scene.start('Settings');
+  }
+  private shutdown(): void {
+    document.removeEventListener('keydown', this.onUtilityKey);
+    this.input.keyboard?.off('keydown', this.captureKey, this);
+    this.manager.destroy();
   }
 }

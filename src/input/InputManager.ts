@@ -6,6 +6,7 @@ import {
   type InputDevice,
 } from './InputAction';
 import type { InputSettings } from './InputBindings';
+import { KeyboardInputSource } from './KeyboardInputSource';
 export interface PhysicalInput {
   keys?: ReadonlySet<string>;
   buttons?: ReadonlySet<number>;
@@ -28,6 +29,9 @@ export class InputState {
   axisX = 0;
   axisY = 0;
   constructor(public settings: InputSettings) {}
+  setSettings(settings: InputSettings): void {
+    this.settings = settings;
+  }
   blockInherited(): void {
     for (const action of this.down) this.blockedUntilRelease.add(action);
   }
@@ -90,32 +94,43 @@ export class InputState {
   }
 }
 export class InputManager extends InputState {
-  private keys = new Map<string, Phaser.Input.Keyboard.Key>();
-  private readonly keySet = new Set<string>();
+  private readonly keyboardSource: KeyboardInputSource;
   private readonly buttonSet = new Set<number>();
   constructor(
     private scene: Phaser.Scene,
     settings: InputSettings,
   ) {
     super(settings);
-    for (const code of new Set(Object.values(settings.keyboard)))
-      this.keys.set(code, scene.input.keyboard!.addKey(code));
+    this.keyboardSource = new KeyboardInputSource((code) =>
+      Object.values(this.settings.keyboard).includes(code),
+    );
+  }
+  override blockInherited(): void {
+    this.update(this.physicalInput());
+    super.blockInherited();
   }
   poll(): void {
-    this.keySet.clear();
-    for (const [code, key] of this.keys) if (key.isDown) this.keySet.add(code);
+    this.update(this.physicalInput());
+  }
+  private physicalInput(): PhysicalInput {
     const pad = this.scene.input.gamepad?.getPad(0);
     this.buttonSet.clear();
     pad?.buttons.forEach((b, i) => {
       if (b.pressed) this.buttonSet.add(i);
     });
-    this.update({
-      keys: this.keySet,
+    return {
+      keys: this.keyboardSource.activeCodes,
       buttons: this.buttonSet,
       axisX: pad?.leftStick.x,
       axisY: pad?.leftStick.y,
       gamepadConnected: Boolean(pad),
       pointer: this.scene.input.activePointer.primaryDown,
-    });
+    };
+  }
+  destroy(): void {
+    this.keyboardSource.destroy();
+    this.buttonSet.clear();
+    // Release the Phaser scene so stopped scenes can be collected.
+    this.scene = undefined as unknown as Phaser.Scene;
   }
 }

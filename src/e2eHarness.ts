@@ -4,6 +4,8 @@ import type { GhostRun } from './runs/GhostTypes';
 import type { LevelScene } from './scenes/LevelScene';
 import type { InputAction } from './input/InputAction';
 import { LEVELS } from './config/levelConfig';
+import type { MenuScene } from './scenes/MenuScene';
+import type { RunSetupScene } from './scenes/RunSetupScene';
 
 export interface E2EHarness {
   scene: () => string[];
@@ -24,6 +26,8 @@ export interface E2EHarness {
   getEligibility: () => unknown;
   getPracticeAnchor: () => string | null;
   getGhostState: () => string | null;
+  menuSelection: () => number;
+  runSetupSelection: () => { mode: number; anchor: number } | null;
 }
 
 export function installE2EHarness(game: Phaser.Game): void {
@@ -79,6 +83,9 @@ export function installE2EHarness(game: Phaser.Game): void {
       (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState().anchorId ?? null,
     getGhostState: () =>
       (game.scene.getScene('Level') as LevelScene | undefined)?.getRunState().playerState ?? null,
+    menuSelection: () => (game.scene.getScene('Menu') as MenuScene).getSelection(),
+    runSetupSelection: () =>
+      (game.scene.getScene('RunSetup') as RunSetupScene | undefined)?.getSelection() ?? null,
   };
 }
 
