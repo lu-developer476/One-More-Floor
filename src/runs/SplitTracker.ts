@@ -6,11 +6,16 @@ export interface SplitTime {
   readonly cumulativeMs: number;
   readonly segmentMs: number;
 }
+export const cumulativeSplitRecord = (times: readonly SplitTime[]): Record<string, number> =>
+  Object.fromEntries(times.map((split) => [split.id, split.cumulativeMs]));
+export const segmentSplitRecord = (times: readonly SplitTime[]): Record<string, number> =>
+  Object.fromEntries(times.map((split) => [split.id, split.segmentMs]));
 
 export class SplitTracker {
   private nextIndex = 0;
   private previousMs = 0;
   private readonly times: SplitTime[] = [];
+  private readonly initialIndex: number;
 
   constructor(
     private readonly definitions: readonly SplitDefinition[],
@@ -20,6 +25,7 @@ export class SplitTracker {
       const index = definitions.findIndex(({ id }) => id === startingSplitId);
       this.nextIndex = index < 0 ? 0 : index + 1;
     }
+    this.initialIndex = this.nextIndex;
   }
 
   trigger(id: string, elapsedMs: number): SplitTime | null {
@@ -53,10 +59,10 @@ export class SplitTracker {
     return this.times;
   }
   get omitted(): readonly string[] {
-    return this.definitions.slice(this.nextIndex).map(({ id }) => id);
+    return this.definitions.slice(0, this.initialIndex).map(({ id }) => id);
   }
   reset(): void {
-    this.nextIndex = 0;
+    this.nextIndex = this.initialIndex;
     this.previousMs = 0;
     this.times.length = 0;
   }

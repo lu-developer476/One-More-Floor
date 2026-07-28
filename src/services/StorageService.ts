@@ -4,6 +4,8 @@ import type { GhostRun } from '../runs/GhostTypes';
 import { validateGhostRun } from '../runs/GhostValidator';
 import { defaultInputSettings, type InputSettings } from '../input/InputBindings';
 import { validateInputSettings } from '../input/InputValidation';
+import { LEVELS } from '../config/levelConfig';
+import { calculateBestTheoretical } from '../systems/SplitComparisons';
 export interface FloorRecord {
   completed: boolean;
   bestTimeMs: number | null;
@@ -192,7 +194,7 @@ export class StorageService {
     if (policy.progress)
       data.unlockedFloor = Math.min(TOTAL_FLOORS, Math.max(data.unlockedFloor, floor + 1));
     this.save(data);
-    const values = Object.values(bestSegments);
+    const level = LEVELS[floor - 1];
     return {
       save: data,
       progressSaved: policy.progress,
@@ -201,7 +203,7 @@ export class StorageService {
       ghostSaved,
       rankImproved,
       improvedSegments,
-      bestTheoreticalMs: values.length ? values.reduce((sum, value) => sum + value, 0) : null,
+      bestTheoreticalMs: level ? calculateBestTheoretical(level, bestSegments) : null,
     };
   }
   clearGhosts(): SaveData {

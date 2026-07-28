@@ -1,0 +1,3 @@
+import { expect, it } from 'vitest';
+import { completionRate, dispersion, mean, median, mostInconsistentSegment, percentile, slowestSegment, topEntry } from './AnalyticsStatistics';
+it('handles empty, corrupt, small and tied samples', () => { expect(mean([])).toBeNull(); expect(mean([1, Number.NaN, 3])).toBe(2); expect(median([3, 1, 2])).toBe(2); expect(percentile([0, 10], .5)).toBe(5); expect(completionRate(0, 0)).toBeNull(); expect(completionRate(4, 1)).toBe(.25); expect(topEntry({ b: 2, a: 2 })).toBe('a'); expect(dispersion([1])).toBeNull(); expect(slowestSegment({ a: [1], b: [3] })).toBe('b'); expect(mostInconsistentSegment({ a: [1, 2] })).toBeNull(); });

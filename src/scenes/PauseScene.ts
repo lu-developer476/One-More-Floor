@@ -75,6 +75,7 @@ export class PauseScene extends Phaser.Scene {
         })
         .setOrigin(0.5);
     else {
+      eventBus.emit(Events.RUN_ABANDON);
       this.scene.stop('UI');
       this.scene.stop('Level');
       this.scene.start('Menu');

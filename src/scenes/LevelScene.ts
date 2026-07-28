@@ -15,6 +15,9 @@ import { AttemptSession, type DeathCause, type RunContext } from '../runs/Attemp
 import { GhostPlayer } from '../runs/GhostPlayer';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
+import { LocalAnalyticsService } from '../analytics/LocalAnalyticsService';
+import { SplitFeedback } from '../ui/SplitFeedback';
+import { calculateBestTheoretical } from '../systems/SplitComparisons';
 
 const DEATH_FADE_MS = 260;
 const DEATH_RESTART_MS = 480;
@@ -41,6 +44,12 @@ export class LevelScene extends Phaser.Scene {
   private inputManager!: InputManager;
   private session!: AttemptSession;
   private context!: RunContext;
+  private analytics!: LocalAnalyticsService;
+  private feedback!: SplitFeedback;
+  private bestRunSplits: Record<string, number> = {};
+  private bestTheoreticalMs: number | null = null;
+  private lastDeltaMs: number | null = null;
+  private closure: 'active' | 'died' | 'restarted' | 'completed' | 'abandoned' = 'active';
 
   constructor() {
     super('Level');
@@ -58,6 +67,10 @@ export class LevelScene extends Phaser.Scene {
       y: this.player?.y ?? 0,
       velocityX: (this.player?.body as Phaser.Physics.Arcade.Body | undefined)?.velocity.x ?? 0,
       velocityY: (this.player?.body as Phaser.Physics.Arcade.Body | undefined)?.velocity.y ?? 0,
+      currentSplit: this.session?.splits.current ?? null,
+      nextSplit: this.session?.splits.next ?? null,
+      completedSplits: this.session?.splits.completed ?? [],
+      lastSplitFeedback: this.feedback?.last ?? null,
     };
   }
 
@@ -105,6 +118,11 @@ export class LevelScene extends Phaser.Scene {
       anchor.startingSplitId,
       Boolean(import.meta.env.VITE_E2E),
     );
+    this.bestRunSplits = record?.bestRunSplits ?? {};
+    this.bestTheoreticalMs = calculateBestTheoretical(this.level, record?.bestSegments ?? {});
+    this.analytics = new LocalAnalyticsService(settings.localAnalyticsEnabled);
+    this.analytics.start(this.context);
+    this.feedback = new SplitFeedback(this, settings.highContrast);
     this.player.lock();
     this.physics.world.pause();
     if (settings.showGhost && record?.bestGhost)
@@ -125,6 +143,7 @@ export class LevelScene extends Phaser.Scene {
     this.events.on(Events.DOOR_STATE, this.onDoorState, this);
     eventBus.on(Events.SETTINGS_CHANGED, this.applySettings, this);
     eventBus.on(Events.PAUSE_RESTART, this.restart, this);
+    eventBus.on(Events.RUN_ABANDON, this.abandon, this);
     this.applySettings(settings);
     this.countdown = new RunCountdown(this, () => {
       if (this.dead || this.complete) return;
@@ -166,7 +185,20 @@ export class LevelScene extends Phaser.Scene {
       );
     for (const timedDoor of this.built.timedDoors)
       this.physics.add.collider(this.player, timedDoor.blocker);
+    for (const split of this.built.splitZones)
+      this.physics.add.overlap(this.player, split.zone, () => this.triggerSplit(split.definition.id));
     this.physics.add.overlap(this.player, this.built.door, () => this.finish());
+  }
+
+  triggerSplit(id: string) {
+    const result = this.session.triggerSplit(id);
+    if (!result) return null;
+    const reference = this.bestRunSplits[id];
+    this.lastDeltaMs = reference === undefined ? null : result.cumulativeMs - reference;
+    this.analytics.split(this.levelIndex, id, result.segmentMs);
+    const settings = new StorageService().load().settings;
+    this.feedback.show(result, this.lastDeltaMs, settings.reduceFlashes);
+    return result;
   }
 
   update(_time: number, delta: number): void {
@@ -229,6 +261,11 @@ export class LevelScene extends Phaser.Scene {
       runMode: this.session.context.mode,
       eligibility: this.session.eligibility.status,
       practiceAnchor: this.session.context.anchorId,
+      nextSplit: this.session.splits.next?.name ?? null,
+      nextReferenceMs: this.session.splits.next ? (this.bestRunSplits[this.session.splits.next.id] ?? null) : null,
+      lastSplit: this.session.splits.current,
+      lastDeltaMs: this.lastDeltaMs,
+      bestTheoreticalMs: this.session.context.mode === 'practice' && this.session.splits.omitted.length ? null : this.bestTheoreticalMs,
     });
   }
 
@@ -237,7 +274,9 @@ export class LevelScene extends Phaser.Scene {
   ): void {
     if (this.dead || this.complete) return;
     this.dead = true;
+    this.closure = 'died';
     this.session.recordDeath(details.cause, details.sourceId);
+    this.analytics.death(this.levelIndex, details.cause, details.sourceId);
     this.session.discard();
     this.deaths += 1;
     this.player.kill();
@@ -260,13 +299,19 @@ export class LevelScene extends Phaser.Scene {
   private finish(): void {
     if (this.dead || this.complete) return;
     this.complete = true;
+    const finalSplit = this.level.splits.at(-1);
+    if (finalSplit && this.session.splits.next?.id === finalSplit.id) this.triggerSplit(finalSplit.id);
+    if (this.session.splits.next && this.context.mode !== 'practice') {
+      this.complete = false;
+      return;
+    }
+    this.closure = 'completed';
     this.player.lock();
     audioService.play('elevator', 300);
     this.collapse.stop();
-    const elapsed = Math.round(this.session.attemptMs);
-    const previousBestMs = this.bestTimeMs;
-    const ghostRun = this.session.recorder.finish(elapsed);
-    const ghostSaved = previousBestMs === null || elapsed < previousBestMs;
+    const result = this.session.finish();
+    const elapsed = result.elapsedMs;
+    this.analytics.complete(this.levelIndex, elapsed);
     this.cameras.main.zoomTo(1.025, 180);
     this.time.delayedCall(260, () => {
       this.scene.stop('UI');
@@ -277,9 +322,9 @@ export class LevelScene extends Phaser.Scene {
         levelIndex: this.levelIndex,
         totalElapsedMs: this.totalElapsedMs + elapsed,
         final: this.levelIndex === 4,
-        previousBestMs,
-        ghostSaved,
-        ghostRun,
+        ghostRun: result.ghostRun,
+        splits: result.cumulativeSplits,
+        segments: result.segments,
         mode: this.session.context.mode,
         eligibility: this.session.eligibility,
         context: this.session.context,
@@ -304,16 +349,25 @@ export class LevelScene extends Phaser.Scene {
       facing: this.player.facingDirection,
       state: visualState(this.player.states.state),
     });
+    while (this.session.splits.next) this.triggerSplit(this.session.splits.next.id);
     this.finish();
   }
 
   private restart(): void {
     if (this.dead || this.complete) return;
+    this.closure = 'restarted';
+    this.analytics.restart(this.levelIndex);
     this.scene.restart({
       ...this.session.restartData(),
       deaths: this.deaths,
       totalElapsedMs: this.totalElapsedMs,
     });
+  }
+
+  private abandon(): void {
+    if (this.closure !== 'active') return;
+    this.closure = 'abandoned';
+    this.analytics.abandon(this.levelIndex);
   }
 
   private openPause(): void {
@@ -414,9 +468,11 @@ export class LevelScene extends Phaser.Scene {
     this.events.off(Events.DOOR_STATE, this.onDoorState, this);
     eventBus.off(Events.SETTINGS_CHANGED, this.applySettings, this);
     eventBus.off(Events.PAUSE_RESTART, this.restart, this);
+    eventBus.off(Events.RUN_ABANDON, this.abandon, this);
     this.events.off('e2e:kill', this.die, this);
     this.events.off('e2e:complete', this.e2eComplete, this);
     for (const door of this.built.timedDoors) door.destroy();
+    this.feedback?.destroy();
     this.environment.destroy();
     this.scene.stop('UI');
   }

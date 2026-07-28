@@ -5,6 +5,7 @@ import { audioService } from '../services/AudioService';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
 import { formatPrompt } from '../input/InputPromptFormatter';
+import { calculateBestTheoretical } from '../systems/SplitComparisons';
 
 const INPUT_GUARD_MS = 180;
 export class MenuScene extends Phaser.Scene {
@@ -42,7 +43,7 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(480, 137, 'HOTFIX DE TECLADO · v0.7.1', {
+      .text(480, 137, 'SPLITS Y ESTADÍSTICAS LOCALES · v0.8.0', {
         fontFamily: 'monospace',
         fontSize: '15px',
         color: '#f5c84c',
@@ -52,14 +53,16 @@ export class MenuScene extends Phaser.Scene {
       'JUGAR / CONTINUAR',
       ...LEVELS.map((level, index) => {
         const record = save.floors[String(level.floor)];
-        return `${index < this.unlocked ? '' : '🔒 '}PISO ${level.floor} · ${level.name} · PB ${record?.bestTimeMs ? `${(record.bestTimeMs / 1000).toFixed(2)}s` : '--'} · ${record?.rank ?? '-'}${record?.bestGhost ? ' · FANTASMA DISPONIBLE' : ''}`;
+        const theoretical = calculateBestTheoretical(level, record?.bestSegments ?? {});
+        return `${index < this.unlocked ? '' : 'BLOQUEADO · '}PISO ${level.floor} · ${level.name}\nPB ${record?.bestTimeMs ? `${(record.bestTimeMs / 1000).toFixed(2)}s` : '--'} · RANGO ${record?.rank ?? '-'} · GHOST ${record?.bestGhost ? 'SÍ' : 'NO'} · TEÓRICO ${theoretical ? `${(theoretical / 1000).toFixed(2)}s` : '--'}`;
       }),
+      'ESTADÍSTICAS',
       'AJUSTES',
       'CRÉDITOS',
     ];
     options.forEach((label, index) => {
       const item = this.add
-        .text(480, 190 + index * 34, label, {
+        .text(480, 175 + index * 39, label, {
           fontFamily: 'monospace',
           fontSize: '14px',
           color: '#91a6b6',
@@ -138,7 +141,8 @@ export class MenuScene extends Phaser.Scene {
       if (index <= this.unlocked) this.scene.start('RunSetup', { levelIndex: index - 1 });
       return;
     }
-    if (index === TOTAL_FLOORS + 1) this.scene.start('Settings');
+    if (index === TOTAL_FLOORS + 1) this.scene.start('Analytics');
+    else if (index === TOTAL_FLOORS + 2) this.scene.start('Settings');
     else
       this.add
         .text(480, 475, 'Diseño y desarrollo: Lucas Montenegro · Recursos 100% procedurales', {

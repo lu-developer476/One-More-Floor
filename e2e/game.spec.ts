@@ -117,7 +117,7 @@ test('mouse selects a floor option', async ({ page }) => {
 });
 
 test('settings change independently and persist after reload', async ({ page }) => {
-  for (let index = 0; index < 6; index += 1) await page.keyboard.press('ArrowDown');
+  for (let index = 0; index < 7; index += 1) await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Settings'));
   await page.keyboard.press('ArrowDown');
@@ -126,6 +126,24 @@ test('settings change independently and persist after reload', async ({ page }) 
   await page.reload();
   await page.waitForFunction(() => Boolean(window.__OMF_E2E__));
   expect(await page.evaluate(() => window.__OMF_E2E__?.save().settings.mute)).toBe(true);
+});
+
+test('physical player overlap activates the first split only once', async ({ page }) => {
+  await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
+  await page.keyboard.down('KeyD');
+  await page.waitForFunction(() => (window.__OMF_E2E__?.getCompletedSplits() as unknown[] | undefined)?.length === 1);
+  await page.keyboard.up('KeyD');
+  expect((await page.evaluate(() => window.__OMF_E2E__?.getCompletedSplits()))).toHaveLength(1);
+});
+
+test('future split is ignored and analytics scene opens', async ({ page }) => {
+  await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
+  expect(await page.evaluate(() => window.__OMF_E2E__?.triggerSplit('floor01-split-high'))).toBeNull();
+  expect((await page.evaluate(() => window.__OMF_E2E__?.getAnalytics(1)))?.attempts).toBe(1);
+  await page.evaluate(() => window.__OMF_E2E__?.openAnalytics());
+  await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Analytics'));
 });
 
 test('fullscreen request does not break the game', async ({ page }) => {

@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
-import type { LevelDefinition, TimedHazardDefinition } from '../types/game';
+import type { LevelDefinition, SplitDefinition, TimedHazardDefinition } from '../types/game';
+import { StorageService } from '../services/StorageService';
+import { formatPrompt } from '../input/InputPromptFormatter';
 import { addSpikes } from '../objects/Hazard';
 import { timedCycleState } from './TimedCycle';
 import { MovingPlatform } from '../objects/MovingPlatform';
@@ -20,7 +22,12 @@ export interface BuiltLevel {
   conveyors: ConveyorZone[];
   timedDoors: TimedDoor[];
   door: ExitDoor;
+  splitZones: BuiltSplitZone[];
   objects: number;
+}
+export interface BuiltSplitZone {
+  definition: SplitDefinition;
+  zone: Phaser.GameObjects.Zone;
 }
 
 export class TimedZone {
@@ -173,16 +180,33 @@ export class LevelFactory {
         ),
     );
     const timedDoors = level.doors.map((definition) => new TimedDoor(this.scene, definition));
+    const input = new StorageService().load().input;
     for (const tutorial of level.tutorials)
       this.scene.add
-        .text(tutorial.x, tutorial.y, tutorial.text, {
+        .text(
+          tutorial.x,
+          tutorial.y,
+          `${tutorial.action ? formatPrompt(tutorial.action, 'keyboard', input) : ''}${tutorial.suffix ?? ''}${tutorial.text ?? ''}`,
+          {
           fontFamily: 'monospace',
           fontSize: '14px',
           color: '#d9e7ed',
           backgroundColor: '#101820aa',
           padding: { x: 8, y: 5 },
-        })
+          },
+        )
         .setDepth(30);
+    const splitZones = level.splits.map((definition) => {
+      const zone = this.scene.add.zone(
+        definition.x,
+        definition.y,
+        definition.width,
+        definition.height,
+      );
+      zone.setData('splitId', definition.id);
+      this.scene.physics.add.existing(zone, true);
+      return { definition, zone };
+    });
     const door = new ExitDoor(this.scene, level.exit.x, level.exit.y);
     return {
       platforms,
@@ -195,6 +219,7 @@ export class LevelFactory {
       conveyors,
       timedDoors,
       door,
+      splitZones,
       objects:
         platforms.getLength() +
         hazards.getLength() +

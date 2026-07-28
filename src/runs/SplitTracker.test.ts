@@ -13,3 +13,7 @@ describe('SplitTracker', () => {
     expect(tracker.trigger('floor01-b', 250)?.segmentMs).toBe(150);
   });
 });
+it('omits splits through a practice anchor intentionally', () => {
+  const tracker = new SplitTracker(splits, 'floor01-a');
+  expect(tracker.omitted).toEqual(['floor01-a']); expect(tracker.trigger('floor01-a', 10)).toBeNull(); expect(tracker.trigger('floor01-b', 10)?.segmentMs).toBe(10);
+});

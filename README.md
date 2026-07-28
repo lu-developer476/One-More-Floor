@@ -1,8 +1,8 @@
-# One More Floor v0.7.1
+# One More Floor v0.8.0
 
 Plataformas 2D de precisión construido con Phaser 3.90, TypeScript estricto y Vite. Escapá de cinco pisos data-driven antes del colapso, ahora con contrarreloj justo y fantasma local.
 
-## Qué incluye 0.7.0
+## Qué incluye 0.8.0
 
 ### Hotfix 0.7.1
 
@@ -11,8 +11,10 @@ Plataformas 2D de precisión construido con Phaser 3.90, TypeScript estricto y V
 - El remapeo persiste, se aplica inmediatamente y puede restaurarse sin borrar progreso con `?reset-controls`.
 - Playwright valida los recorridos con eventos reales `page.keyboard`, sin acciones sintéticas del harness.
 
-- Splits data-driven, comparación contra PB, mejores segmentos y mejor tiempo teórico.
-- Estadísticas locales opcionales y acotadas: no se envían datos a Internet.
+- Splits físicos data-driven conectados al recorrido, comparación contra los splits del PB y mejores segmentos históricos.
+- HUD y resultados muestran deltas sólo al cruzar zonas; el tiempo teórico exige todos los segmentos del piso.
+- Estadísticas locales opcionales y acotadas cubren inicio, splits, muerte, reinicio, abandono y finalización. No se envían datos a Internet.
+- La pantalla ESTADÍSTICAS resume balance por piso y copia un informe JSON de texto mediante Clipboard API.
 - Causas de muerte tipadas y persistencia v6 con migración defensiva.
 - Validación estructural de niveles con `npm run check:levels`.
 
@@ -69,7 +71,7 @@ npm run test:e2e
 - `runs/GhostValidator.ts`: validación pura de JSON y límites.
 - `runs/GhostInterpolation.ts`: reproducción temporal pura y búsqueda incremental.
 - `runs/GhostPlayer.ts`: único sprite visual no físico.
-- `services/StorageService.ts`: autoridad de persistencia v5 y migraciones.
+- `services/StorageService.ts`: autoridad de persistencia v6 y migraciones.
 - `scenes/`: composición, UI, ajustes y resultados.
 - `e2e/`: flujos de navegador basados en harness/estado, nunca píxeles.
 
@@ -86,7 +88,7 @@ Static Site: build `npm ci && npm run build`, publicación `dist`. No requiere b
 - Los prompts son textuales y cambian entre estilos genérico, Xbox, PlayStation y Nintendo; el estilo no altera el mapeo físico.
 - CI automatiza Chromium; gamepads diversos, equipos de gama baja y playtesting humano exhaustivo siguen pendientes.
 
-La auditoría de esta versión está en [`docs/splits-analytics-audit.md`](docs/splits-analytics-audit.md).
+La auditoría de esta versión está en [`docs/splits-analytics-completion-080.md`](docs/splits-analytics-completion-080.md).
 
 ## Licencia
 

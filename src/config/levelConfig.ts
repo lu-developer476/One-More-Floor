@@ -1,5 +1,19 @@
-import type { LevelDefinition, PlatformDefinition } from '../types/game';
+import type { LevelDefinition, PlatformDefinition, SplitDefinition } from '../types/game';
+import { InputAction } from '../input/InputAction';
 const ground = (width: number): PlatformDefinition => ({ x: width / 2, y: 680, width, height: 40 });
+const splitList = (
+  floor: number,
+  values: readonly (readonly [string, string, number])[],
+): SplitDefinition[] =>
+  values.map(([suffix, name, x], order) => ({
+    id: `floor${String(floor).padStart(2, '0')}-split-${suffix}`,
+    name,
+    x,
+    y: 480,
+    width: 80,
+    height: 400,
+    order,
+  }));
 const base = (
   floor: number,
   name: string,
@@ -34,35 +48,7 @@ const base = (
     y: 620,
     label: 'ASCENSOR',
   },
-  splits: [
-    {
-      id: `floor${String(floor).padStart(2, '0')}-split-entry`,
-      name: 'SALIDA',
-      x: 300,
-      y: 480,
-      width: 80,
-      height: 240,
-      order: 0,
-    },
-    {
-      id: `floor${String(floor).padStart(2, '0')}-split-core`,
-      name: 'MECÁNICA CENTRAL',
-      x: Math.round(width * 0.52),
-      y: 360,
-      width: 100,
-      height: 360,
-      order: 1,
-    },
-    {
-      id: `floor${String(floor).padStart(2, '0')}-split-final`,
-      name: 'ASCENSOR',
-      x: width - 140,
-      y: 480,
-      width: 100,
-      height: 240,
-      order: 2,
-    },
-  ],
+  splits: [],
   platforms: [ground(width)],
   movingPlatforms: [],
   fallingPlatforms: [],
@@ -81,6 +67,7 @@ const base = (
 });
 const evacuation = {
   ...base(1, 'EVACUACIÓN', 2800, 50000, 26000, 0x5ef1ff, 0x081521),
+  splits: splitList(1, [['entry', 'SALIDA', 300], ['gap', 'PRIMER VACÍO', 760], ['high', 'PLATAFORMAS ALTAS', 1540], ['final', 'TRAMO FINAL', 2320], ['exit', 'ASCENSOR', 2680]]),
   practiceAnchors: [
     { id: 'floor01-anchor-start', name: 'INICIO', x: 90, y: 620, startingSplitId: null },
     {
@@ -95,7 +82,7 @@ const evacuation = {
       name: 'TRAMO FINAL',
       x: 2360,
       y: 620,
-      startingSplitId: 'floor01-split-core',
+      startingSplitId: 'floor01-split-high',
     },
   ],
   platforms: [
@@ -114,13 +101,14 @@ const evacuation = {
     { x: 2030, y: 660, width: 128 },
   ],
   tutorials: [
-    { x: 150, y: 570, text: 'A/D O ←/→  MOVER' },
-    { x: 470, y: 500, text: 'ESPACIO / A  SALTO VARIABLE' },
+    { x: 150, y: 570, action: InputAction.MOVE_LEFT, suffix: '  MOVER' },
+    { x: 470, y: 500, action: InputAction.JUMP, suffix: '  SALTO VARIABLE' },
     { x: 1080, y: 520, text: 'LOS BORDES PERDONAN: COYOTE + BUFFER' },
   ],
 };
 const maintenance = {
   ...base(2, 'MANTENIMIENTO', 3200, 56000, 30000, 0x77f29a, 0x071b17),
+  splits: splitList(2, [['entry', 'SALIDA', 300], ['dash', 'DASH', 560], ['moving', 'PLATAFORMA MÓVIL', 1120], ['electric', 'ELECTRICIDAD', 1580], ['exit', 'ASCENSOR', 3080]]),
   practiceAnchors: [
     { id: 'floor02-anchor-start', name: 'INICIO', x: 90, y: 620, startingSplitId: null },
     {
@@ -128,14 +116,14 @@ const maintenance = {
       name: 'PLATAFORMA MÓVIL',
       x: 650,
       y: 480,
-      startingSplitId: 'floor02-split-entry',
+      startingSplitId: 'floor02-split-dash',
     },
     {
       id: 'floor02-anchor-electric',
       name: 'ELECTRICIDAD',
       x: 1300,
       y: 430,
-      startingSplitId: 'floor02-split-entry',
+      startingSplitId: 'floor02-split-moving',
     },
   ],
   platforms: [
@@ -156,12 +144,13 @@ const maintenance = {
     { x: 2350, y: 660, width: 220 },
   ],
   tutorials: [
-    { x: 450, y: 570, text: 'SHIFT / RB  DASH' },
+    { x: 450, y: 570, action: InputAction.DASH, suffix: '  DASH' },
     { x: 1390, y: 580, text: '⚡ PARPADEO = ACTIVACIÓN' },
   ],
 };
 const ventilation = {
   ...base(3, 'VENTILACIÓN', 3300, 60000, 34000, 0xc7d5dc, 0x111820),
+  splits: splitList(3, [['entry', 'SALIDA', 300], ['fan', 'VENTILADOR', 820], ['wall', 'WALL JUMP', 1420], ['current', 'CORRIENTE LATERAL', 2180], ['exit', 'ASCENSOR', 3180]]),
   practiceAnchors: [
     { id: 'floor03-anchor-start', name: 'INICIO', x: 90, y: 620, startingSplitId: null },
     {
@@ -169,14 +158,14 @@ const ventilation = {
       name: 'WALL JUMP',
       x: 1050,
       y: 620,
-      startingSplitId: 'floor03-split-entry',
+      startingSplitId: 'floor03-split-fan',
     },
     {
       id: 'floor03-anchor-current',
       name: 'CORRIENTE',
       x: 1800,
       y: 620,
-      startingSplitId: 'floor03-split-core',
+      startingSplitId: 'floor03-split-wall',
     },
   ],
   platforms: [
@@ -204,6 +193,7 @@ const ventilation = {
 };
 const reactor = {
   ...base(4, 'REACTOR', 3500, 58000, 33000, 0xff9c4a, 0x251007),
+  splits: splitList(4, [['entry', 'SALIDA', 300], ['belt', 'CINTA', 620], ['fragile', 'PLATAFORMAS FRÁGILES', 1080], ['laser', 'LÁSER', 1700], ['door', 'PUERTA', 3020], ['exit', 'ASCENSOR', 3380]]),
   practiceAnchors: [
     { id: 'floor04-anchor-start', name: 'INICIO', x: 90, y: 620, startingSplitId: null },
     {
@@ -211,14 +201,14 @@ const reactor = {
       name: 'PLATAFORMAS FRÁGILES',
       x: 650,
       y: 470,
-      startingSplitId: 'floor04-split-entry',
+      startingSplitId: 'floor04-split-belt',
     },
     {
       id: 'floor04-anchor-door',
       name: 'PUERTA',
       x: 2760,
       y: 620,
-      startingSplitId: 'floor04-split-core',
+      startingSplitId: 'floor04-split-laser',
     },
   ],
   platforms: [
@@ -258,6 +248,11 @@ const reactor = {
 };
 const collapse = {
   ...base(5, 'COLAPSO', 3900, 56000, 35000, 0xff405c, 0x21060b),
+  splits: splitList(5, [
+    ['belt', 'SALIDA / CINTA', 500], ['walls', 'MUROS', 1700],
+    ['fragile', 'PLATAFORMAS FRÁGILES', 2200], ['laser', 'LÁSER', 2700],
+    ['fan', 'VENTILADOR', 3150], ['exit', 'ASCENSOR', 3780],
+  ]),
   practiceAnchors: [
     { id: 'floor05-anchor-start', name: 'INICIO', x: 90, y: 620, startingSplitId: null },
     {
@@ -265,14 +260,14 @@ const collapse = {
       name: 'MUROS',
       x: 1300,
       y: 620,
-      startingSplitId: 'floor05-split-entry',
+      startingSplitId: 'floor05-split-belt',
     },
     {
       id: 'floor05-anchor-final',
       name: 'VENTILADOR FINAL',
       x: 2880,
       y: 620,
-      startingSplitId: 'floor05-split-core',
+      startingSplitId: 'floor05-split-laser',
     },
   ],
   platforms: [

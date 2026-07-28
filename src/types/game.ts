@@ -60,7 +60,9 @@ export interface DoorDefinition extends RectDefinition {
   triggerRadius: number;
 }
 export interface TutorialDefinition extends Point {
-  text: string;
+  text?: string;
+  action?: import('../input/InputAction').InputAction;
+  suffix?: string;
 }
 export interface RankThreshold {
   maxTimeMs: number;
@@ -120,6 +122,11 @@ export interface HudData {
   runMode: RunMode;
   eligibility: string;
   practiceAnchor: string;
+  nextSplit: string | null;
+  nextReferenceMs: number | null;
+  lastSplit: import('../runs/SplitTracker').SplitTime | null;
+  lastDeltaMs: number | null;
+  bestTheoreticalMs: number | null;
 }
 export type RunMode = 'competitive' | 'practice' | 'assisted';
 export interface LevelSceneData {
@@ -138,10 +145,10 @@ export interface ResultData {
   levelIndex: number;
   totalElapsedMs: number;
   final: boolean;
-  previousBestMs: number | null;
-  ghostSaved: boolean;
   mode: RunMode;
   eligibility: import('../runs/RunEligibility').RunEligibility;
   ghostRun: import('../runs/GhostTypes').GhostRun;
   context: import('../runs/AttemptSession').RunContext;
+  splits: Record<string, number>;
+  segments: Record<string, number>;
 }
