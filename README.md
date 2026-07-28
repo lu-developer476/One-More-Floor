@@ -2,12 +2,12 @@
 
 ## Tower Run
 
-La v0.9.1 encadena los cinco pisos en una sesión con tiempo de juego y muertes acumulados. El checkpoint local se escribe entre pisos; al recargar se retoma desde el anchor inicial del piso pendiente y se descarta el intento parcial. Competitivo guarda un récord global coherente con una partida real y conserva récords y ghosts individuales; asistido conserva progresión sin reemplazar datos competitivos. La v0.9.1 centraliza abandonos, confirma reemplazos y migra la persistencia a v8.
-v0.9.1
+La v0.9.2 conserva los récords y ghosts anteriores y encadena los cinco pisos en una sesión con tiempo de juego y muertes acumulados. El checkpoint local se escribe entre pisos; al recargar se retoma desde el anchor inicial del piso pendiente y se descarta el intento parcial. Competitivo guarda un récord global coherente con una partida real y conserva récords y ghosts individuales; asistido conserva progresión sin reemplazar datos competitivos. La v0.9.2 migra la persistencia a v9, adopta el layout de teclado 2 y extiende el dash a 220 ms sin cambiar su velocidad.
+v0.9.2
 
 Plataformas 2D de precisión construido con Phaser 3.90, TypeScript estricto y Vite. Escapá de cinco pisos data-driven antes del colapso, ahora con contrarreloj justo y fantasma local.
 
-## Qué incluye 0.9.1
+## Qué incluye 0.9.2
 
 ### Hotfix 0.7.1
 
@@ -28,20 +28,20 @@ Plataformas 2D de precisión construido con Phaser 3.90, TypeScript estricto y V
 - Grabación fija a 20 Hz, posiciones cuantizadas, límites estrictos y reproducción interpolada mediante un único sprite sin cuerpo físico.
 - El mejor ghost se guarda por piso sólo junto a un récord válido; los intentos fallidos se descartan.
 - Menú y HUD muestran PB, rango y disponibilidad del fantasma; `showGhost` se aplica y persiste de inmediato.
-- Persistencia JSON v8, con migración defensiva desde v1, v2 y v3 y recuperación aislada de ghosts corruptos.
+- Persistencia JSON v9, con migración defensiva desde v1 hasta v8, migración única del layout y recuperación aislada de ghosts y Tower Records corruptos.
 - Limpieza confirmada de fantasmas, récords o progreso completo desde Ajustes.
 - Recursos gráficos y audio generados en runtime. El repositorio aplica una política **text-only** y no contiene capturas.
 
 ## Controles
 
-| Acción   | Teclado           | Gamepad         |
-| -------- | ----------------- | --------------- |
-| Mover    | `A/D` o flechas   | stick izquierdo |
-| Saltar   | `W`, `↑`, espacio | A               |
-| Dash     | `Shift`           | RB/RT           |
-| Pausa    | `Esc`             | Start           |
-| Reinicio | `R`               | menú de pausa   |
-| Menús    | flechas + `Enter` | stick + A/B     |
+| Acción   | Teclado                      | Gamepad                   |
+| -------- | ---------------------------- | ------------------------- |
+| Mover    | flechas izquierda/derecha    | stick izquierdo o cruceta |
+| Saltar   | `Espacio`                    | A                         |
+| Dash     | `S`                          | RB                        |
+| Pausa    | `P`                          | Start                     |
+| Reinicio | `R`                          | LB                        |
+| Menús    | flechas + `Enter` / `Escape` | stick/cruceta + A/B       |
 
 La cuenta regresiva permite pausar o volver al menú. No se puede saltar y ningún input anterior a `GO` se convierte en una acción jugable.
 
@@ -76,7 +76,7 @@ npm run test:e2e
 - `runs/GhostValidator.ts`: validación pura de JSON y límites.
 - `runs/GhostInterpolation.ts`: reproducción temporal pura y búsqueda incremental.
 - `runs/GhostPlayer.ts`: único sprite visual no físico.
-- `services/StorageService.ts`: autoridad de persistencia v8 y migraciones.
+- `services/StorageService.ts`: autoridad de persistencia v9 y migraciones.
 - `scenes/`: composición, UI, ajustes y resultados.
 - `e2e/`: flujos de navegador basados en harness/estado, nunca píxeles.
 
@@ -93,7 +93,7 @@ Static Site: build `npm ci && npm run build`, publicación `dist`. No requiere b
 - Los prompts son textuales y cambian entre estilos genérico, Xbox, PlayStation y Nintendo; el estilo no altera el mapeo físico.
 - CI automatiza Chromium; gamepads diversos, equipos de gama baja y playtesting humano exhaustivo siguen pendientes.
 
-La auditoría de esta versión está en [`docs/tower-run-stability-091.md`](docs/tower-run-stability-091.md).
+La auditoría de controles y dash está en [`docs/control-layout-dash-092.md`](docs/control-layout-dash-092.md).
 
 ## Licencia
 

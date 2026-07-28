@@ -7,13 +7,14 @@ export interface InputSettings {
   gamepad: GamepadBindings;
   deadZone: number;
   promptStyle: PromptStyle;
+  keyboardLayoutVersion: 2;
 }
 export const DEFAULT_KEYBOARD_BINDINGS: KeyboardBindings = {
-  [InputAction.MOVE_LEFT]: 'KeyA',
-  [InputAction.MOVE_RIGHT]: 'KeyD',
+  [InputAction.MOVE_LEFT]: 'ArrowLeft',
+  [InputAction.MOVE_RIGHT]: 'ArrowRight',
   [InputAction.JUMP]: 'Space',
-  [InputAction.DASH]: 'ShiftLeft',
-  [InputAction.PAUSE]: 'Escape',
+  [InputAction.DASH]: 'KeyS',
+  [InputAction.PAUSE]: 'KeyP',
   [InputAction.RESTART]: 'KeyR',
   [InputAction.MENU_UP]: 'ArrowUp',
   [InputAction.MENU_DOWN]: 'ArrowDown',
@@ -41,4 +42,5 @@ export const defaultInputSettings = (): InputSettings => ({
   gamepad: { ...DEFAULT_GAMEPAD_BINDINGS },
   deadZone: 0.25,
   promptStyle: 'generic',
+  keyboardLayoutVersion: 2,
 });

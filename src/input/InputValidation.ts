@@ -8,6 +8,21 @@ import {
 const CODE =
   /^(Key[A-Z]|Digit[0-9]|Arrow(Up|Down|Left|Right)|Space|Enter|Escape|Shift(Left|Right)|Control(Left|Right)|Tab|Backspace)$/;
 const RESERVED = new Set(['F5', 'F11', 'F12']);
+export type BindingDomain = 'gameplay' | 'menu' | 'system';
+export const BINDING_DOMAIN: Record<Action, BindingDomain> = {
+  [InputAction.MOVE_LEFT]: 'gameplay',
+  [InputAction.MOVE_RIGHT]: 'gameplay',
+  [InputAction.JUMP]: 'gameplay',
+  [InputAction.DASH]: 'gameplay',
+  [InputAction.RESTART]: 'gameplay',
+  [InputAction.MENU_UP]: 'menu',
+  [InputAction.MENU_DOWN]: 'menu',
+  [InputAction.MENU_LEFT]: 'menu',
+  [InputAction.MENU_RIGHT]: 'menu',
+  [InputAction.CONFIRM]: 'menu',
+  [InputAction.BACK]: 'menu',
+  [InputAction.PAUSE]: 'system',
+};
 export const isValidKeyCode = (value: unknown): value is string =>
   typeof value === 'string' && value.length <= 20 && CODE.test(value) && !RESERVED.has(value);
 export const isValidButton = (value: unknown): value is number =>
@@ -17,7 +32,12 @@ export const bindingConflict = (
   action: Action,
   value: string | number,
 ): Action | null =>
-  INPUT_ACTIONS.find((candidate) => candidate !== action && bindings[candidate] === value) ?? null;
+  INPUT_ACTIONS.find(
+    (candidate) =>
+      candidate !== action &&
+      BINDING_DOMAIN[candidate] === BINDING_DOMAIN[action] &&
+      bindings[candidate] === value,
+  ) ?? null;
 export const swapBinding = <T extends string | number>(
   bindings: Record<Action, T>,
   action: Action,
@@ -71,5 +91,13 @@ export function validateInputSettings(raw: unknown): InputSettings {
     source.promptStyle === 'generic'
       ? source.promptStyle
       : 'generic';
+  if (source.keyboardLayoutVersion !== 2) {
+    result.keyboard[InputAction.MOVE_LEFT] = DEFAULT_KEYBOARD_BINDINGS[InputAction.MOVE_LEFT];
+    result.keyboard[InputAction.MOVE_RIGHT] = DEFAULT_KEYBOARD_BINDINGS[InputAction.MOVE_RIGHT];
+    result.keyboard[InputAction.JUMP] = DEFAULT_KEYBOARD_BINDINGS[InputAction.JUMP];
+    result.keyboard[InputAction.DASH] = DEFAULT_KEYBOARD_BINDINGS[InputAction.DASH];
+    result.keyboard[InputAction.PAUSE] = DEFAULT_KEYBOARD_BINDINGS[InputAction.PAUSE];
+  }
+  result.keyboardLayoutVersion = 2;
   return result;
 }

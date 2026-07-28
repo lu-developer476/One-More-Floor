@@ -19,15 +19,19 @@ const names: Record<PromptStyle, readonly string[]> = {
   nintendo: ['B', 'A', 'Y', 'X', 'L', 'R', 'ZL', 'ZR', '-', '+'],
 };
 export const formatKey = (code: string): string =>
-  (
-    ({
-      Space: 'ESPACIO',
-      Enter: 'ENTER',
-      Escape: 'ESC',
-      ShiftLeft: 'SHIFT',
-      ShiftRight: 'SHIFT',
-    }) as Record<string, string>
-  )[code] ?? code.replace('Key', '').replace('Arrow', '');
+  code.startsWith('Shift')
+    ? 'SHIFT'
+    : ((
+        {
+          Space: 'ESPACIO',
+          Enter: 'ENTER',
+          Escape: 'ESC',
+          ArrowLeft: '←',
+          ArrowRight: '→',
+          ArrowUp: '↑',
+          ArrowDown: '↓',
+        } as Record<string, string>
+      )[code] ?? code.replace('Key', '').replace('Arrow', ''));
 export const formatPrompt = (
   action: InputAction,
   device: InputDevice,

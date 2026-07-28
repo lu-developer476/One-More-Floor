@@ -53,7 +53,8 @@ export class PauseScene extends Phaser.Scene {
     if (this.manager.wasPressed(InputAction.MENU_UP)) this.previous();
     if (this.manager.wasPressed(InputAction.MENU_DOWN)) this.next();
     if (this.manager.wasPressed(InputAction.CONFIRM)) this.confirm();
-    if (this.manager.wasPressed(InputAction.BACK)) this.resume();
+    if (this.manager.wasPressed(InputAction.PAUSE) || this.manager.wasPressed(InputAction.BACK))
+      this.resume();
   }
   private previous(): void {
     this.select((this.selected - 1 + this.options.length) % this.options.length);

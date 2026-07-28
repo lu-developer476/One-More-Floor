@@ -5,7 +5,11 @@ describe('configuration', () => {
   it('centralizes precision timings', () => {
     expect(MOVEMENT.coyoteMs).toBe(100);
     expect(MOVEMENT.jumpBufferMs).toBe(120);
-    expect(MOVEMENT.dashDurationMs).toBe(150);
+    expect(MOVEMENT.dashDurationMs).toBe(220);
+    expect(MOVEMENT.dashSpeed).toBe(675);
+    expect(MOVEMENT.dashCooldownMs).toBe(230);
+    expect(MOVEMENT.dashEndMultiplier).toBe(0.58);
+    expect((MOVEMENT.dashSpeed * MOVEMENT.dashDurationMs) / 1000).toBe(148.5);
   });
   it('defines five valid, increasingly featured floors', () => {
     expect(validateLevels(LEVELS)).toBe(true);

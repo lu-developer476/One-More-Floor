@@ -5,7 +5,8 @@ import { LevelFactory, type BuiltLevel } from '../systems/LevelFactory';
 import { CollapseSystem } from '../systems/CollapseSystem';
 import { EnvironmentSystem } from '../systems/EnvironmentSystem';
 import { eventBus, Events } from '../utils/EventBus';
-import type { LevelDefinition, LevelSceneData } from '../types/game';
+import { PlayerState, type LevelDefinition, type LevelSceneData } from '../types/game';
+import { MOVEMENT } from '../config/movementConfig';
 import { StorageService, type Settings } from '../services/StorageService';
 import { TOTAL_FLOORS } from '../config/levelConfig';
 import { audioService } from '../services/AudioService';
@@ -467,7 +468,10 @@ export class LevelScene extends Phaser.Scene {
       `FLOOR ${this.level.floor}  TIME ${(this.collapse.timer.remainingMs / 1000).toFixed(2)}`,
       `${this.player.states.state}  POS ${this.player.x.toFixed(1)},${this.player.y.toFixed(1)}`,
       `VEL ${body.velocity.x.toFixed(1)},${body.velocity.y.toFixed(1)}`,
-      `GROUND ${body.blocked.down || body.touching.down}  WALL ${wall}  DASH ${this.player.dashAvailable}`,
+      `INPUT L=${this.inputManager.settings.keyboard.MOVE_LEFT} R=${this.inputManager.settings.keyboard.MOVE_RIGHT}`,
+      `INPUT JUMP=${this.inputManager.settings.keyboard.JUMP} DASH=${this.inputManager.settings.keyboard.DASH} PAUSE=${this.inputManager.settings.keyboard.PAUSE}`,
+      `DASH duration=${MOVEMENT.dashDurationMs} speed=${MOVEMENT.dashSpeed} remaining=${this.player.dashRemainingMs.toFixed(0)}`,
+      `GROUND ${body.blocked.down || body.touching.down} WALL ${wall} DASHING ${this.player.states.state === PlayerState.DASHING} AVAILABLE ${this.player.dashAvailable}`,
     ]);
   }
 

@@ -47,6 +47,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   get facingDirection(): -1 | 1 {
     return this.facing < 0 ? -1 : 1;
   }
+  get dashRemainingMs(): number {
+    return Math.max(0, this.dashEndsAt - this.scene.time.now);
+  }
   unlock(): void {
     this.states.unlock();
     this.jumpQueuedAt = -Infinity;
@@ -78,6 +81,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.jumpQueuedAt = now;
     }
 
+    if (now < this.dashEndsAt && wall) this.dashEndsAt = now;
     if (now < this.dashEndsAt) {
       body.maxVelocity.x = MOVEMENT.dashSpeed;
       this.setVelocityY(0);

@@ -1,12 +1,12 @@
-export const emptySaveV8 = {
-  version: 8,
+export const emptySaveV9 = {
+  version: 9,
   unlockedFloor: 1,
   floors: {},
   settings: {},
   input: {},
   tower: {},
 } as const;
-export const unlockedSaveV8 = { ...emptySaveV8, unlockedFloor: 5 } as const;
+export const unlockedSaveV9 = { ...emptySaveV9, unlockedFloor: 5 } as const;
 export const saveV6 = { version: 6, unlockedFloor: 2, floors: {}, settings: {} } as const;
 export const saveV7WithGhost = {
   version: 7,
@@ -28,6 +28,6 @@ export const towerCheckpoint = {
 export const corruptTowerCheckpoint = { ...towerCheckpoint, nextFloor: 4 } as const;
 export const analyticsEnabled = { version: 1, floors: {}, tower: { attempts: 0 } } as const;
 export const analyticsDisabled = {
-  ...emptySaveV8,
+  ...emptySaveV9,
   settings: { localAnalyticsEnabled: false },
 } as const;
