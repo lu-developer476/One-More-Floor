@@ -1,6 +1,6 @@
 {
   "name": "one-more-floor",
-  "version": "0.9.2",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,11 +14,13 @@
     "typecheck": "tsc -b --pretty false",
     "check:text-only": "node scripts/check-text-only.mjs",
     "check:levels": "vitest run src/levels/LevelValidation.test.ts",
-    "validate": "npm run check:text-only && npm run check:levels && npm run typecheck && npm run lint && npm run test && npm run build",
+    "check:version": "node scripts/check-version.mjs",
+    "validate": "npm run check:text-only && npm run check:version && npm run check:levels && npm run typecheck && npm run lint && npm run test && npm run build",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:smoke": "playwright test e2e/preview.spec.ts",
-    "test:e2e:preview": "npm run test:e2e:smoke"
+    "test:e2e:preview": "npm run test:e2e:smoke",
+    "test:deployed": "playwright test e2e/deployed.spec.ts"
   },
   "dependencies": {
     "phaser": "^3.90.0"

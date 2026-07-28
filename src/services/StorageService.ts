@@ -36,6 +36,7 @@ export interface Settings {
   fullscreen: boolean;
   showGhost: boolean;
   localAnalyticsEnabled: boolean;
+  particleIntensity: 'normal' | 'reduced' | 'off';
 }
 export interface SaveData {
   version: 9;
@@ -98,6 +99,7 @@ const defaultSettings = (): Settings => ({
   fullscreen: false,
   showGhost: true,
   localAnalyticsEnabled: true,
+  particleIntensity: 'normal',
 });
 const defaults = (): SaveData => ({
   version: 9,
@@ -277,6 +279,31 @@ export class StorageService {
     this.save(data);
     return data;
   }
+  exportBackup(): string {
+    return JSON.stringify({ format: 'one-more-floor-backup', schema: 9, save: this.load() });
+  }
+  importBackup(text: string): { ok: boolean; error?: string } {
+    try {
+      const raw: unknown = JSON.parse(text);
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw))
+        return { ok: false, error: 'FORMATO INVÁLIDO' };
+      const envelope = raw as Record<string, unknown>;
+      if (
+        envelope.format !== 'one-more-floor-backup' ||
+        envelope.schema !== 9 ||
+        !envelope.save ||
+        typeof envelope.save !== 'object' ||
+        Array.isArray(envelope.save)
+      )
+        return { ok: false, error: 'VERSIÓN INCOMPATIBLE' };
+      if (containsUnsafeKey(envelope.save)) return { ok: false, error: 'CONTENIDO NO SEGURO' };
+      return this.save(validate(envelope.save as Record<string, unknown>))
+        ? { ok: true }
+        : { ok: false, error: 'NO SE PUDO GUARDAR' };
+    } catch {
+      return { ok: false, error: 'JSON INVÁLIDO' };
+    }
+  }
   recordResult(time: number, deaths: number) {
     const record = this.recordFloor(1, time, deaths, 'C').save.floors['1'];
     return { bestTimeMs: record?.bestTimeMs ?? null, fewestDeaths: record?.fewestDeaths ?? null };
@@ -400,6 +427,10 @@ export const validate = (raw: Record<string, unknown>): SaveData => {
     showGhost: typeof source.showGhost === 'boolean' ? source.showGhost : true,
     localAnalyticsEnabled:
       typeof source.localAnalyticsEnabled === 'boolean' ? source.localAnalyticsEnabled : true,
+    particleIntensity:
+      source.particleIntensity === 'reduced' || source.particleIntensity === 'off'
+        ? source.particleIntensity
+        : 'normal',
   };
   if (raw.floors && typeof raw.floors === 'object')
     for (const [key, value] of Object.entries(raw.floors as Record<string, unknown>)) {
@@ -424,6 +455,18 @@ export const validate = (raw: Record<string, unknown>): SaveData => {
       };
     }
   return result;
+};
+const containsUnsafeKey = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object') return false;
+  for (const [key, child] of Object.entries(value as Record<string, unknown>))
+    if (
+      key === '__proto__' ||
+      key === 'prototype' ||
+      key === 'constructor' ||
+      containsUnsafeKey(child)
+    )
+      return true;
+  return false;
 };
 export const validateTower = (raw: unknown): TowerRecord => {
   if (!raw || typeof raw !== 'object') return defaultTower();

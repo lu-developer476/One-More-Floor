@@ -21,3 +21,19 @@ canvas {
   display: block;
   image-rendering: pixelated;
 }
+.startup-error {
+  max-width: 42rem;
+  margin: 15vh auto;
+  padding: 2rem;
+  border: 2px solid #5ef1ff;
+  text-align: center;
+  color: #d9e7ed;
+}
+.startup-error button {
+  margin: 0.5rem;
+  padding: 0.7rem 1rem;
+  color: #071018;
+  background: #5ef1ff;
+  border: 0;
+  font: inherit;
+}

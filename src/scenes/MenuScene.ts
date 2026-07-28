@@ -16,6 +16,7 @@ export class MenuScene extends Phaser.Scene {
   private actions: string[] = [];
   private dialog?: ConfirmDialog;
   private transitioning = false;
+  private onboarding?: ConfirmDialog;
   constructor() {
     super('Menu');
   }
@@ -47,7 +48,7 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(480, 100, 'TOWER RUN · v0.9.2', {
+      .text(480, 100, `TOWER RUN · v${__APP_VERSION__}`, {
         fontFamily: 'monospace',
         fontSize: '15px',
         color: '#f5c84c',
@@ -62,9 +63,10 @@ export class MenuScene extends Phaser.Scene {
           'PRÁCTICA',
           'ESTADÍSTICAS',
           'AJUSTES',
+          'AYUDA',
           'CRÉDITOS',
         ]
-      : ['TOWER RUN', 'PISOS', 'PRÁCTICA', 'ESTADÍSTICAS', 'AJUSTES', 'CRÉDITOS'];
+      : ['TOWER RUN', 'PISOS', 'PRÁCTICA', 'ESTADÍSTICAS', 'AJUSTES', 'AYUDA', 'CRÉDITOS'];
     this.items = this.actions.map((label, i) =>
       this.add
         .text(480, 145 + i * 38, label, {
@@ -93,12 +95,18 @@ export class MenuScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
     this.select(0);
+    try {
+      if (!localStorage.getItem('one-more-floor.onboarding')) this.showOnboarding(save);
+    } catch {
+      this.showOnboarding(save);
+    }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.manager.destroy());
   }
   update(): void {
     this.manager.poll();
     this.dialog?.update(this.manager);
-    if (this.dialog || this.transitioning) return;
+    this.onboarding?.update(this.manager);
+    if (this.dialog || this.onboarding || this.transitioning) return;
     if (this.manager.wasPressed(InputAction.MENU_UP))
       this.select((this.selected + this.items.length - 1) % this.items.length);
     if (this.manager.wasPressed(InputAction.MENU_DOWN))
@@ -146,6 +154,7 @@ export class MenuScene extends Phaser.Scene {
     else if (action === 'PRÁCTICA') this.scene.start('FloorSelect', { practice: true });
     else if (action === 'ESTADÍSTICAS') this.scene.start('Analytics');
     else if (action === 'AJUSTES') this.scene.start('Settings');
+    else if (action === 'AYUDA') this.scene.start('Help');
     else
       this.add
         .text(480, 470, 'Diseño y desarrollo: Lucas Montenegro · 100% procedural', {
@@ -154,6 +163,26 @@ export class MenuScene extends Phaser.Scene {
           color: '#fff',
         })
         .setOrigin(0.5);
+  }
+  private showOnboarding(save: ReturnType<StorageService['load']>): void {
+    try {
+      localStorage.setItem('one-more-floor.onboarding', '1');
+    } catch {
+      /* optional preference */
+    }
+    const controls = `${formatPrompt(InputAction.MOVE_LEFT, this.manager.activeDevice, save.input)} ${formatPrompt(InputAction.MOVE_RIGHT, this.manager.activeDevice, save.input)} MOVER\n${formatPrompt(InputAction.JUMP, this.manager.activeDevice, save.input)} SALTAR · ${formatPrompt(InputAction.DASH, this.manager.activeDevice, save.input)} DASH\n${formatPrompt(InputAction.PAUSE, this.manager.activeDevice, save.input)} PAUSA`;
+    this.onboarding = new ConfirmDialog(
+      this,
+      'CONTROLES',
+      `${controls}\n\nJUGAR · VER CONTROLES DESDE AYUDA`,
+      () => {
+        this.onboarding = undefined;
+        this.start('FloorSelect');
+      },
+      () => {
+        this.onboarding = undefined;
+      },
+    );
   }
   private start(scene: string): void {
     if (this.transitioning) return;
