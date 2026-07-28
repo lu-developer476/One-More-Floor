@@ -31,8 +31,63 @@ test.beforeEach(async ({ page }) => {
       localStorage.removeItem(key);
   });
   await page.goto('/');
+  expect(await page.title()).toBe('One More Floor');
   await expect(page.locator('canvas')).toBeVisible();
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Menu'));
+});
+
+test('real keyboard composes jump and dash in both orders and simultaneously', async ({ page }) => {
+  const start = async () => {
+    await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+    await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
+  };
+  await start();
+  await page.keyboard.down('Space');
+  await page.waitForFunction(() => (window.__OMF_E2E__?.run()?.velocityY ?? 0) < 0);
+  await page.keyboard.press('KeyS');
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.isDashing);
+  expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.velocityY ?? 0)).toBeLessThan(0);
+  await page.keyboard.up('Space');
+
+  await start();
+  await page.keyboard.down('KeyS');
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.isDashing);
+  await page.keyboard.press('Space');
+  expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.isDashing)).toBe(true);
+  expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.velocityY ?? 0)).toBeLessThan(0);
+  await page.keyboard.up('KeyS');
+
+  await start();
+  await page.keyboard.down('Space');
+  await page.keyboard.down('KeyS');
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.isDashing);
+  const simultaneous = await page.evaluate(() => window.__OMF_E2E__?.run());
+  expect(simultaneous?.velocityX).toBeGreaterThan(600);
+  expect(simultaneous?.velocityY).toBeLessThan(0);
+  expect(simultaneous?.jumpEvents).toBe(1);
+  expect(simultaneous?.dashEvents).toBe(1);
+  await page.keyboard.up('Space');
+  await page.keyboard.up('KeyS');
+});
+
+test('full and short jumps have useful heights and falling dash preserves descent', async ({
+  page,
+}) => {
+  await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
+  const initialY = await page.evaluate(() => window.__OMF_E2E__?.run()?.y ?? 0);
+  await page.keyboard.down('Space');
+  await page.waitForFunction(() => (window.__OMF_E2E__?.run()?.velocityY ?? 0) < 0);
+  await page.waitForFunction(() => (window.__OMF_E2E__?.run()?.velocityY ?? 1) >= 0);
+  const apexY = await page.evaluate(() => window.__OMF_E2E__?.run()?.y ?? 0);
+  await page.keyboard.up('Space');
+  expect(initialY - apexY).toBeGreaterThanOrEqual(110);
+  expect(initialY - apexY).toBeLessThanOrEqual(145);
+  await page.waitForFunction(() => (window.__OMF_E2E__?.run()?.velocityY ?? -1) > 0);
+  const fallingY = await page.evaluate(() => window.__OMF_E2E__?.run()?.velocityY ?? 0);
+  await page.keyboard.press('KeyS');
+  expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.velocityY ?? 0)).toBeGreaterThan(0);
+  expect(fallingY).toBeGreaterThan(0);
 });
 
 test('menu loads without console errors and canvas has valid dimensions', async ({ page }) => {

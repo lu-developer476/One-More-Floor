@@ -3,6 +3,10 @@ import { MOVEMENT } from './movementConfig';
 import { LEVELS, validateLevels } from './levelConfig';
 describe('configuration', () => {
   it('centralizes precision timings', () => {
+    expect(MOVEMENT.gravity).toBe(1520);
+    expect(MOVEMENT.jumpSpeed).toBe(620);
+    expect(MOVEMENT.wallJumpY).toBe(590);
+    expect(MOVEMENT.jumpCutMultiplier).toBe(0.6);
     expect(MOVEMENT.coyoteMs).toBe(100);
     expect(MOVEMENT.jumpBufferMs).toBe(120);
     expect(MOVEMENT.dashDurationMs).toBe(220);

@@ -5,7 +5,7 @@ import { LevelFactory, type BuiltLevel } from '../systems/LevelFactory';
 import { CollapseSystem } from '../systems/CollapseSystem';
 import { EnvironmentSystem } from '../systems/EnvironmentSystem';
 import { eventBus, Events } from '../utils/EventBus';
-import { PlayerState, type LevelDefinition, type LevelSceneData } from '../types/game';
+import type { LevelDefinition, LevelSceneData } from '../types/game';
 import { MOVEMENT } from '../config/movementConfig';
 import { StorageService, type Settings } from '../services/StorageService';
 import { TOTAL_FLOORS } from '../config/levelConfig';
@@ -52,6 +52,8 @@ export class LevelScene extends Phaser.Scene {
   private bestTheoreticalMs: number | null = null;
   private lastDeltaMs: number | null = null;
   private closure: 'active' | 'died' | 'restarted' | 'completed' | 'abandoned' = 'active';
+  private jumpEvents = 0;
+  private dashEvents = 0;
 
   constructor() {
     super('Level');
@@ -73,6 +75,10 @@ export class LevelScene extends Phaser.Scene {
       nextSplit: this.session?.splits.next ?? null,
       completedSplits: this.session?.splits.completed ?? [],
       lastSplitFeedback: this.feedback?.last ?? null,
+      isDashing: this.player?.isDashing ?? false,
+      dashRemainingMs: this.player?.dashRemainingMs ?? 0,
+      jumpEvents: this.jumpEvents,
+      dashEvents: this.dashEvents,
     };
   }
 
@@ -100,6 +106,8 @@ export class LevelScene extends Phaser.Scene {
     this.complete = false;
     this.paused = false;
     this.gameplayTimeMs = 0;
+    this.jumpEvents = 0;
+    this.dashEvents = 0;
     this.level = new LevelManager().get(this.levelIndex);
     this.physics.world.setBounds(0, 0, this.level.width, this.level.height);
     this.cameras.main
@@ -407,6 +415,7 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private onJump(): void {
+    this.jumpEvents += 1;
     audioService.play('jump');
   }
 
@@ -433,6 +442,7 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private dashTrail(x: number, y: number): void {
+    this.dashEvents += 1;
     audioService.play('dash');
     for (let i = 0; i < 4; i += 1) {
       const ghost = this.add.image(x - i * 9, y, 'player-dash').setAlpha(0.45 - i * 0.08);
@@ -470,8 +480,10 @@ export class LevelScene extends Phaser.Scene {
       `VEL ${body.velocity.x.toFixed(1)},${body.velocity.y.toFixed(1)}`,
       `INPUT L=${this.inputManager.settings.keyboard.MOVE_LEFT} R=${this.inputManager.settings.keyboard.MOVE_RIGHT}`,
       `INPUT JUMP=${this.inputManager.settings.keyboard.JUMP} DASH=${this.inputManager.settings.keyboard.DASH} PAUSE=${this.inputManager.settings.keyboard.PAUSE}`,
+      `JUMP speed=${MOVEMENT.jumpSpeed} cut=${MOVEMENT.jumpCutMultiplier} queued=${this.player.jumpQueued}`,
       `DASH duration=${MOVEMENT.dashDurationMs} speed=${MOVEMENT.dashSpeed} remaining=${this.player.dashRemainingMs.toFixed(0)}`,
-      `GROUND ${body.blocked.down || body.touching.down} WALL ${wall} DASHING ${this.player.states.state === PlayerState.DASHING} AVAILABLE ${this.player.dashAvailable}`,
+      `GROUND ${body.blocked.down || body.touching.down} WALL ${wall} COYOTE ${this.player.coyoteRemainingMs.toFixed(0)}`,
+      `DASHING ${this.player.isDashing} AVAILABLE ${this.player.dashAvailable} STATE ${this.player.states.state}`,
     ]);
   }
 
