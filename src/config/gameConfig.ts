@@ -15,6 +15,7 @@ import { TowerSetupScene } from '../scenes/TowerSetupScene';
 import { TowerFloorResultsScene } from '../scenes/TowerFloorResultsScene';
 import { EndingScene } from '../scenes/EndingScene';
 import { TowerResultsScene } from '../scenes/TowerResultsScene';
+import { HelpScene } from '../scenes/HelpScene';
 
 export const GAME_WIDTH = 960;
 export const GAME_HEIGHT = 540;
@@ -25,7 +26,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game',
   title: 'One More Floor',
-  version: '0.9.2',
+  version: __APP_VERSION__,
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: '#080b12',
@@ -68,5 +69,6 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     TowerFloorResultsScene,
     EndingScene,
     TowerResultsScene,
+    HelpScene,
   ],
 };

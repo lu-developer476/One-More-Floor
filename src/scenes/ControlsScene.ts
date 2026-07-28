@@ -2,143 +2,172 @@ import Phaser from 'phaser';
 import { StorageService } from '../services/StorageService';
 import { InputAction, type InputAction as Action } from '../input/InputAction';
 import { InputManager } from '../input/InputManager';
-import {
-  DEFAULT_GAMEPAD_BINDINGS,
-  DEFAULT_KEYBOARD_BINDINGS,
-  defaultInputSettings,
-  type InputSettings,
-} from '../input/InputBindings';
-import {
-  bindingConflict,
-  isValidButton,
-  isValidKeyCode,
-  swapBinding,
-} from '../input/InputValidation';
-import { formatKey, formatPrompt } from '../input/InputPromptFormatter';
+import { defaultInputSettings, type InputSettings, type PromptStyle } from '../input/InputBindings';
+import { isValidButton, isValidKeyCode, swapBinding } from '../input/InputValidation';
+import { formatKey } from '../input/InputPromptFormatter';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { eventBus, Events } from '../utils/EventBus';
-const editable: readonly Action[] = [
-  InputAction.MOVE_LEFT,
-  InputAction.MOVE_RIGHT,
-  InputAction.JUMP,
-  InputAction.DASH,
-  InputAction.PAUSE,
-  InputAction.RESTART,
-  InputAction.CONFIRM,
-  InputAction.BACK,
+
+const editable: readonly Action[] = Object.values(InputAction);
+const styles: readonly PromptStyle[] = ['generic', 'xbox', 'playstation', 'nintendo'];
+type ControlRow = Action | 'DEVICE' | 'DEADZONE' | 'PROMPTS' | 'RESTORE' | 'BACK';
+const rows: readonly ControlRow[] = [
+  'DEVICE',
+  ...editable,
+  'DEADZONE',
+  'PROMPTS',
+  'RESTORE',
+  'BACK',
 ];
+
 export class ControlsScene extends Phaser.Scene {
   private service = new StorageService();
   private settings!: InputSettings;
   private manager!: InputManager;
   private selected = 0;
   private device: 'keyboard' | 'gamepad' = 'keyboard';
-  private rows: Phaser.GameObjects.Text[] = [];
-  private capture = false;
+  private labels: Phaser.GameObjects.Text[] = [];
+  private capture: ControlRow | null = null;
+  private heldBeforeCapture = new Set<number>();
   private message!: Phaser.GameObjects.Text;
   private dialog?: ConfirmDialog;
   constructor() {
     super('Controls');
   }
-  create() {
+  create(): void {
     this.settings = this.service.load().input;
     this.manager = new InputManager(this, this.settings);
     this.manager.blockInherited();
-    this.add.rectangle(480, 270, 820, 510, 0x071018, 0.98).setStrokeStyle(2, 0x5ef1ff);
+    this.add.rectangle(480, 270, 900, 520, 0x071018, 0.99).setStrokeStyle(2, 0x5ef1ff);
     this.add
-      .text(480, 30, 'CONTROLES', { fontFamily: 'monospace', fontSize: '30px', color: '#5ef1ff' })
+      .text(480, 25, 'CONTROLES', { fontFamily: 'monospace', fontSize: '26px', color: '#5ef1ff' })
       .setOrigin(0.5);
-    this.rows = editable.map((_a, i) =>
+    this.labels = rows.map((_row, index) =>
       this.add
-        .text(480, 75 + i * 36, '', { fontFamily: 'monospace', fontSize: '16px', color: '#91a6b6' })
-        .setOrigin(0.5),
-    );
-    this.message = this.add
-      .text(480, 390, '', {
-        fontFamily: 'monospace',
-        fontSize: '15px',
-        color: '#f5c84c',
-        align: 'center',
-      })
-      .setOrigin(0.5);
-    this.add
-      .text(
-        480,
-        455,
-        `TAB: TECLADO/GAMEPAD · ←→ DEADZONE/ESTILO\n${formatPrompt(InputAction.RESTART, this.device, this.settings)} RESTAURAR · ${formatPrompt(InputAction.BACK, this.device, this.settings)} VOLVER`,
-        {
+        .text(480, 53 + index * 24, '', {
           fontFamily: 'monospace',
           fontSize: '14px',
           color: '#91a6b6',
-          align: 'center',
-        },
-      )
+        })
+        .setOrigin(0.5)
+        .setInteractive()
+        .on('pointerover', () => {
+          this.selected = index;
+          this.render();
+        })
+        .on('pointerdown', () => this.activate(1)),
+    );
+    this.message = this.add
+      .text(480, 500, '', { fontFamily: 'monospace', fontSize: '13px', color: '#f5c84c' })
       .setOrigin(0.5);
     this.render();
-    document.addEventListener('keydown', this.onUtilityKey);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
   }
-  update() {
+  update(): void {
+    if (this.capture) return this.pollCapture();
     this.manager.poll();
     this.dialog?.update(this.manager);
-    if (this.dialog || this.capture) return;
+    if (this.dialog) return;
     if (this.manager.wasPressed(InputAction.MENU_UP))
-      this.selected = (this.selected + editable.length - 1) % editable.length;
+      this.selected = (this.selected + rows.length - 1) % rows.length;
     if (this.manager.wasPressed(InputAction.MENU_DOWN))
-      this.selected = (this.selected + 1) % editable.length;
-    if (this.manager.wasPressed(InputAction.CONFIRM)) this.beginCapture();
+      this.selected = (this.selected + 1) % rows.length;
+    if (this.manager.wasPressed(InputAction.MENU_LEFT)) this.activate(-1);
+    if (
+      this.manager.wasPressed(InputAction.MENU_RIGHT) ||
+      this.manager.wasPressed(InputAction.CONFIRM)
+    )
+      this.activate(1);
     if (this.manager.wasPressed(InputAction.BACK)) this.back();
     this.render();
   }
-  private onUtilityKey = (event: KeyboardEvent): void => {
-    if (event.repeat || this.capture || this.dialog) return;
-    if (event.code === 'Tab') {
-      event.preventDefault();
-      this.device = this.device === 'keyboard' ? 'gamepad' : 'keyboard';
-      this.render();
-    } else if (event.code === 'KeyR') this.restore();
-  };
-  private beginCapture() {
-    this.capture = true;
+  private activate(direction: number): void {
+    const row = rows[this.selected]!;
+    if (row === 'DEVICE') this.device = this.device === 'keyboard' ? 'gamepad' : 'keyboard';
+    else if (row === 'DEADZONE') {
+      this.settings.deadZone = Phaser.Math.Clamp(
+        Math.round((this.settings.deadZone + direction * 0.05) * 100) / 100,
+        0.1,
+        0.9,
+      );
+      this.persist();
+    } else if (row === 'PROMPTS') {
+      const at = styles.indexOf(this.settings.promptStyle);
+      this.settings.promptStyle = styles[(at + direction + styles.length) % styles.length]!;
+      this.persist();
+    } else if (row === 'RESTORE') this.restore();
+    else if (row === 'BACK') this.back();
+    else this.beginCapture(row);
+  }
+  private beginCapture(action: Action): void {
+    this.capture = action;
+    this.manager.blockInherited();
     this.message.setText(
       this.device === 'keyboard'
-        ? `PRESIONÁ UNA TECLA · ${formatPrompt(InputAction.BACK, this.device, this.settings)} CANCELA`
-        : 'PRESIONÁ UN BOTÓN · B CANCELA',
+        ? 'PRESIONÁ UNA TECLA · ESC CANCELA'
+        : 'SOLTÁ BOTONES PREVIOS Y PRESIONÁ UNO · BACK CANCELA',
     );
-    if (this.device === 'keyboard') this.input.keyboard!.once('keydown', this.captureKey, this);
+    if (this.device === 'keyboard')
+      document.addEventListener('keydown', this.captureKey, { capture: true });
+    else this.heldBeforeCapture = this.pressedButtons();
   }
-  private captureKey = (event: KeyboardEvent) => {
-    this.capture = false;
-    if (event.code === 'Escape') return this.render();
+  private captureKey = (event: KeyboardEvent): void => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (event.repeat) return;
+    if (event.code === this.settings.keyboard[InputAction.BACK]) return this.endCapture();
     if (!isValidKeyCode(event.code)) {
       this.message.setText('TECLA RESERVADA O INVÁLIDA');
       return;
     }
     this.assign(event.code);
   };
-  private assign(value: string | number) {
-    const action = editable[this.selected]!;
-    const bindings = this.device === 'keyboard' ? this.settings.keyboard : this.settings.gamepad;
-    const conflict = bindingConflict(bindings, action, value);
-    if (conflict) this.message.setText(`CONFLICTO CON ${conflict}: ASIGNACIONES INTERCAMBIADAS`);
+  private pollCapture(): void {
+    if (this.device !== 'gamepad') return;
+    const pad = this.input.gamepad?.getPad(0);
+    if (!pad) {
+      this.message.setText('GAMEPAD DESCONECTADO · ESC PARA CANCELAR');
+      return;
+    }
+    const pressed = this.pressedButtons();
+    for (const prior of [...this.heldBeforeCapture])
+      if (!pressed.has(prior)) this.heldBeforeCapture.delete(prior);
+    const back = this.settings.gamepad[InputAction.BACK];
+    if (pressed.has(back) && !this.heldBeforeCapture.has(back)) return this.endCapture();
+    for (const button of pressed)
+      if (!this.heldBeforeCapture.has(button) && isValidButton(button)) return this.assign(button);
+  }
+  private pressedButtons(): Set<number> {
+    const result = new Set<number>();
+    this.input.gamepad?.getPad(0)?.buttons.forEach((b, i) => {
+      if (b.pressed) result.add(i);
+    });
+    return result;
+  }
+  private assign(value: string | number): void {
+    const action = this.capture as Action;
     if (this.device === 'keyboard' && typeof value === 'string')
       this.settings.keyboard = swapBinding(this.settings.keyboard, action, value);
-    else if (this.device === 'gamepad' && isValidButton(value))
+    if (this.device === 'gamepad' && typeof value === 'number')
       this.settings.gamepad = swapBinding(this.settings.gamepad, action, value);
+    this.endCapture();
     this.persist();
+    this.message.setText('ASIGNACIÓN GUARDADA');
   }
-  private restore() {
+  private endCapture(): void {
+    document.removeEventListener('keydown', this.captureKey, { capture: true });
+    this.capture = null;
+    this.heldBeforeCapture.clear();
+    this.render();
+  }
+  private restore(): void {
     this.dialog = new ConfirmDialog(
       this,
       'RESTAURAR CONTROLES',
-      'Se perderán tus asignaciones personalizadas.',
+      'Se perderán las asignaciones personalizadas.',
       () => {
-        this.settings = {
-          ...defaultInputSettings(),
-          keyboard: { ...DEFAULT_KEYBOARD_BINDINGS },
-          gamepad: { ...DEFAULT_GAMEPAD_BINDINGS },
-        };
         this.dialog = undefined;
+        this.settings = defaultInputSettings();
         this.persist();
       },
       () => {
@@ -146,7 +175,7 @@ export class ControlsScene extends Phaser.Scene {
       },
     );
   }
-  private persist() {
+  private persist(): void {
     const save = this.service.load();
     save.input = this.settings;
     this.service.save(save);
@@ -154,30 +183,27 @@ export class ControlsScene extends Phaser.Scene {
     this.manager.setSettings(this.settings);
     this.render();
   }
-  private render() {
-    this.rows.forEach((row, i) => {
-      const action = editable[i]!;
-      const value =
-        this.device === 'keyboard'
-          ? formatKey(this.settings.keyboard[action])
-          : `BOTÓN ${this.settings.gamepad[action]}`;
-      row
-        .setText(`${i === this.selected ? '▶' : ' '} ${action.padEnd(12)} ${value}`)
-        .setColor(i === this.selected ? '#fff' : '#91a6b6');
+  private render(): void {
+    this.labels.forEach((label, index) => {
+      const row = rows[index]!;
+      let value: string = row;
+      if (row === 'DEVICE') value = `DISPOSITIVO: ${this.device.toUpperCase()}`;
+      else if (row === 'DEADZONE') value = `DEADZONE: ${this.settings.deadZone.toFixed(2)}`;
+      else if (row === 'PROMPTS') value = `ESTILO: ${this.settings.promptStyle.toUpperCase()}`;
+      else if (editable.includes(row as Action))
+        value = `${row.padEnd(12)} ${this.device === 'keyboard' ? formatKey(this.settings.keyboard[row as Action]) : `BOTÓN ${this.settings.gamepad[row as Action]}`}`;
+      label
+        .setText(`${index === this.selected ? '▶' : ' '} ${value}`)
+        .setColor(index === this.selected ? '#fff' : '#91a6b6');
     });
-    if (!this.capture && !this.message.text)
-      this.message.setText(
-        `${this.device.toUpperCase()} · DEADZONE ${this.settings.deadZone.toFixed(2)} · ${this.settings.promptStyle.toUpperCase()}`,
-      );
   }
-  private back() {
+  private back(): void {
     this.scene.stop();
     if (this.scene.isPaused('Pause')) this.scene.resume('Pause');
     else this.scene.start('Settings');
   }
   private shutdown(): void {
-    document.removeEventListener('keydown', this.onUtilityKey);
-    this.input.keyboard?.off('keydown', this.captureKey, this);
+    this.endCapture();
     this.manager.destroy();
   }
 }

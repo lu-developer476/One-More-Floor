@@ -10,6 +10,8 @@ import { LocalAnalyticsService } from '../analytics/LocalAnalyticsService';
 const labels: readonly (
   | keyof Settings
   | 'controls'
+  | 'copyBackup'
+  | 'importBackup'
   | 'reset'
   | 'clearGhosts'
   | 'clearRecords'
@@ -25,8 +27,11 @@ const labels: readonly (
   'highContrast',
   'showGhost',
   'localAnalyticsEnabled',
+  'particleIntensity',
   'fullscreen',
   'controls',
+  'copyBackup',
+  'importBackup',
   'clearGhosts',
   'clearRecords',
   'clearAnalytics',
@@ -43,8 +48,11 @@ const names: Record<(typeof labels)[number], string> = {
   highContrast: 'ALTO CONTRASTE',
   showGhost: 'MOSTRAR FANTASMA',
   localAnalyticsEnabled: 'ESTADÍSTICAS LOCALES',
+  particleIntensity: 'INTENSIDAD DE PARTÍCULAS',
   fullscreen: 'PANTALLA COMPLETA',
   controls: 'CONTROLES',
+  copyBackup: 'COPIAR COPIA DE SEGURIDAD',
+  importBackup: 'IMPORTAR DESDE PORTAPAPELES',
   clearGhosts: 'BORRAR FANTASMAS',
   clearRecords: 'BORRAR RÉCORDS',
   clearAnalytics: 'BORRAR ESTADÍSTICAS LOCALES',
@@ -71,13 +79,13 @@ export class SettingsScene extends Phaser.Scene {
     this.manager.blockInherited();
     this.add.rectangle(480, 270, 700, 500, 0x071018, 0.97).setStrokeStyle(2, 0x5ef1ff);
     this.add
-      .text(480, 48, 'AJUSTES', { fontFamily: 'monospace', fontSize: '32px', color: '#5ef1ff' })
+      .text(480, 28, 'AJUSTES', { fontFamily: 'monospace', fontSize: '32px', color: '#5ef1ff' })
       .setOrigin(0.5);
     this.items = labels.map((_key, index) => {
       const item = this.add
-        .text(480, 88 + index * 32, '', {
+        .text(480, 56 + index * 24, '', {
           fontFamily: 'monospace',
-          fontSize: '16px',
+          fontSize: '14px',
           color: '#91a6b6',
         })
         .setOrigin(0.5)
@@ -129,6 +137,8 @@ export class SettingsScene extends Phaser.Scene {
   private value(key: (typeof labels)[number]): string {
     if (
       key === 'controls' ||
+      key === 'copyBackup' ||
+      key === 'importBackup' ||
       key === 'reset' ||
       key === 'clearGhosts' ||
       key === 'clearRecords' ||
@@ -138,6 +148,10 @@ export class SettingsScene extends Phaser.Scene {
     )
       return '';
     if (key === 'volume') return `${Math.round(this.settings.volume * 100)}%`;
+    if (key === 'particleIntensity')
+      return { normal: 'NORMAL', reduced: 'REDUCIDA', off: 'DESACTIVADA' }[
+        this.settings.particleIntensity
+      ];
     return this.settings[key] ? 'SÍ' : 'NO';
   }
   private render(): void {
@@ -156,6 +170,14 @@ export class SettingsScene extends Phaser.Scene {
     if (key === 'controls') {
       this.scene.pause();
       this.scene.launch('Controls');
+      return;
+    }
+    if (key === 'copyBackup') {
+      void this.copyBackup();
+      return;
+    }
+    if (key === 'importBackup') {
+      this.confirmImport();
       return;
     }
     if (
@@ -196,12 +218,58 @@ export class SettingsScene extends Phaser.Scene {
         0,
         1,
       );
-    else if (key === 'fullscreen') {
+    else if (key === 'particleIntensity') {
+      const values: Settings['particleIntensity'][] = ['normal', 'reduced', 'off'];
+      const at = values.indexOf(this.settings.particleIntensity);
+      this.settings.particleIntensity = values[(at + direction + values.length) % values.length]!;
+    } else if (key === 'fullscreen') {
       if (this.scale.isFullscreen) this.scale.stopFullscreen();
       else this.scale.startFullscreen();
       return;
     } else this.settings[key] = !this.settings[key];
     this.persist();
+  }
+  private async copyBackup(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(this.service.exportBackup());
+      this.showMessage('COPIA GUARDADA EN PORTAPAPELES');
+    } catch {
+      this.showMessage('PORTAPAPELES NO DISPONIBLE');
+    }
+  }
+  private confirmImport(): void {
+    this.dialog = new ConfirmDialog(
+      this,
+      'IMPORTAR DATOS',
+      'Una copia válida reemplazará los datos locales.',
+      () => {
+        this.dialog = undefined;
+        void this.importBackup();
+      },
+      () => {
+        this.dialog = undefined;
+      },
+    );
+  }
+  private async importBackup(): Promise<void> {
+    try {
+      const result = this.service.importBackup(await navigator.clipboard.readText());
+      this.showMessage(result.ok ? 'COPIA IMPORTADA' : (result.error ?? 'IMPORTACIÓN RECHAZADA'));
+      if (result.ok) {
+        const save = this.service.load();
+        this.settings = save.settings;
+        this.manager.setSettings(save.input);
+        this.render();
+      }
+    } catch {
+      this.showMessage('PORTAPAPELES NO DISPONIBLE');
+    }
+  }
+  private showMessage(message: string): void {
+    const text = this.add
+      .text(480, 515, message, { fontFamily: 'monospace', fontSize: '13px', color: '#f5c84c' })
+      .setOrigin(0.5);
+    this.time.delayedCall(2500, () => text.destroy());
   }
   private persist(): void {
     const save = this.service.load();

@@ -35,9 +35,15 @@ export const bindingConflict = (
   INPUT_ACTIONS.find(
     (candidate) =>
       candidate !== action &&
-      BINDING_DOMAIN[candidate] === BINDING_DOMAIN[action] &&
-      bindings[candidate] === value,
+      bindings[candidate] === value &&
+      !compatible(action, candidate, typeof value === 'number'),
   ) ?? null;
+const compatible = (a: Action, b: Action, gamepad: boolean): boolean => {
+  const pair = new Set([a, b]);
+  if (pair.has(InputAction.MOVE_LEFT) && pair.has(InputAction.MENU_LEFT)) return true;
+  if (pair.has(InputAction.MOVE_RIGHT) && pair.has(InputAction.MENU_RIGHT)) return true;
+  return gamepad && pair.has(InputAction.JUMP) && pair.has(InputAction.CONFIRM);
+};
 export const swapBinding = <T extends string | number>(
   bindings: Record<Action, T>,
   action: Action,
@@ -64,6 +70,12 @@ export function validateInputSettings(raw: unknown): InputSettings {
   for (const action of INPUT_ACTIONS) {
     if (isValidKeyCode(keyboard[action])) result.keyboard[action] = keyboard[action];
     if (isValidButton(gamepad[action])) result.gamepad[action] = gamepad[action];
+  }
+  for (const action of INPUT_ACTIONS) {
+    if (bindingConflict(result.keyboard, action, result.keyboard[action]))
+      result.keyboard[action] = DEFAULT_KEYBOARD_BINDINGS[action];
+    if (bindingConflict(result.gamepad, action, result.gamepad[action]))
+      result.gamepad[action] = DEFAULT_GAMEPAD_BINDINGS[action];
   }
   if (result.keyboard[InputAction.MOVE_LEFT] === result.keyboard[InputAction.MOVE_RIGHT]) {
     result.keyboard[InputAction.MOVE_LEFT] = DEFAULT_KEYBOARD_BINDINGS[InputAction.MOVE_LEFT];
