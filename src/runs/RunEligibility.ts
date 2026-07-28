@@ -1,4 +1,5 @@
-export type RunMode = 'competitive' | 'practice' | 'assisted';
+import type { RunMode } from '../types/game';
+export type { RunMode } from '../types/game';
 export interface EligibilityRequest {
   mode: RunMode;
   startAnchorId: string;

@@ -129,6 +129,7 @@ export interface HudData {
   bestTheoreticalMs: number | null;
 }
 export type RunMode = 'competitive' | 'practice' | 'assisted';
+export type RunScope = 'floor' | 'tower';
 export interface LevelSceneData {
   levelIndex?: number;
   mode?: RunMode;
@@ -137,6 +138,8 @@ export interface LevelSceneData {
   deaths?: number;
   totalElapsedMs?: number;
   gameplayAssist?: boolean;
+  scope?: RunScope;
+  towerRunId?: string | null;
 }
 export interface ResultData {
   elapsedMs: number;

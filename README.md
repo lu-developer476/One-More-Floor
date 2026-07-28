@@ -1,8 +1,13 @@
-# One More Floor v0.8.0
+# One More Floor
+
+## Tower Run
+
+La v0.9.0 encadena los cinco pisos en una sesión con tiempo de juego y muertes acumulados. El checkpoint local se escribe entre pisos; al recargar se retoma desde el anchor inicial del piso pendiente y se descarta el intento parcial. Competitivo guarda récord/rango global y conserva los récords y ghosts individuales; asistido conserva progresión sin reemplazar datos competitivos.
+v0.9.0
 
 Plataformas 2D de precisión construido con Phaser 3.90, TypeScript estricto y Vite. Escapá de cinco pisos data-driven antes del colapso, ahora con contrarreloj justo y fantasma local.
 
-## Qué incluye 0.8.0
+## Qué incluye 0.9.0
 
 ### Hotfix 0.7.1
 

@@ -5,7 +5,13 @@ import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
 import { StorageService } from '../services/StorageService';
 
-const options = ['CONTINUAR', 'REINICIAR PISO', 'AJUSTES', 'CONTROLES', 'VOLVER AL MENÚ'] as const;
+const options = [
+  'CONTINUAR',
+  'REINICIAR PISO',
+  'AJUSTES',
+  'CONTROLES',
+  'ABANDONAR PARTIDA',
+] as const;
 export class PauseScene extends Phaser.Scene {
   private selected = 0;
   private items: Phaser.GameObjects.Text[] = [];

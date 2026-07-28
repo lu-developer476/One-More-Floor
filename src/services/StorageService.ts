@@ -15,6 +15,14 @@ export interface FloorRecord {
   bestRunSplits: Record<string, number>;
   bestSegments: Record<string, number>;
 }
+export interface TowerRecord {
+  completed: boolean;
+  bestTimeMs: number | null;
+  fewestDeaths: number | null;
+  rank: Rank | null;
+  bestFloorTimes: Record<string, number>;
+  bestCumulativeTimes: Record<string, number>;
+}
 export interface Settings {
   volume: number;
   mute: boolean;
@@ -27,11 +35,12 @@ export interface Settings {
   localAnalyticsEnabled: boolean;
 }
 export interface SaveData {
-  version: 6;
+  version: 7;
   unlockedFloor: number;
   floors: Record<string, FloorRecord>;
   settings: Settings;
   input: InputSettings;
+  tower: TowerRecord;
 }
 export interface RecordFloorResult {
   save: SaveData;
@@ -52,8 +61,9 @@ export interface CompletionOutcome extends RecordFloorResult {
   bestTheoreticalMs: number | null;
 }
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
-const KEY = 'one-more-floor.save.v6';
+const KEY = 'one-more-floor.save.v7';
 const OLD_KEYS = [
+  'one-more-floor.save.v6',
   'one-more-floor.save.v5',
   'one-more-floor.save.v4',
   'one-more-floor.save.v3',
@@ -72,11 +82,20 @@ const defaultSettings = (): Settings => ({
   localAnalyticsEnabled: true,
 });
 const defaults = (): SaveData => ({
-  version: 6,
+  version: 7,
   unlockedFloor: 1,
   floors: {},
   settings: defaultSettings(),
   input: defaultInputSettings(),
+  tower: defaultTower(),
+});
+export const defaultTower = (): TowerRecord => ({
+  completed: false,
+  bestTimeMs: null,
+  fewestDeaths: null,
+  rank: null,
+  bestFloorTimes: {},
+  bestCumulativeTimes: {},
 });
 const finite = (value: unknown, min: number, max = Number.MAX_SAFE_INTEGER): number | null =>
   typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max
@@ -240,6 +259,48 @@ export class StorageService {
     const record = this.recordFloor(1, time, deaths, 'C').save.floors['1'];
     return { bestTimeMs: record?.bestTimeMs ?? null, fewestDeaths: record?.fewestDeaths ?? null };
   }
+  recordTower(
+    time: number,
+    deaths: number,
+    rank: Rank,
+    results: readonly { floor: number; elapsedMs: number; cumulativeTowerMs: number }[],
+  ): { save: SaveData; newBestTime: boolean } {
+    const data = this.load();
+    if (results.length !== TOTAL_FLOORS || finite(time, 1) === null || finite(deaths, 0) === null)
+      return { save: data, newBestTime: false };
+    const old = data.tower;
+    const newBestTime = old.bestTimeMs === null || time < old.bestTimeMs;
+    const bestFloorTimes = { ...old.bestFloorTimes },
+      bestCumulativeTimes = { ...old.bestCumulativeTimes };
+    for (const result of results) {
+      const key = String(result.floor);
+      if (
+        result.floor < 1 ||
+        result.floor > TOTAL_FLOORS ||
+        finite(result.elapsedMs, 1) === null ||
+        finite(result.cumulativeTowerMs, 1) === null
+      )
+        return { save: data, newBestTime: false };
+      bestFloorTimes[key] = Math.min(
+        bestFloorTimes[key] ?? Number.MAX_SAFE_INTEGER,
+        result.elapsedMs,
+      );
+      bestCumulativeTimes[key] = Math.min(
+        bestCumulativeTimes[key] ?? Number.MAX_SAFE_INTEGER,
+        result.cumulativeTowerMs,
+      );
+    }
+    data.tower = {
+      completed: true,
+      bestTimeMs: newBestTime ? time : old.bestTimeMs,
+      fewestDeaths: old.fewestDeaths === null ? deaths : Math.min(old.fewestDeaths, deaths),
+      rank: betterRank(old.rank, rank),
+      bestFloorTimes,
+      bestCumulativeTimes,
+    };
+    this.save(data);
+    return { save: data, newBestTime };
+  }
   private parse(raw: string | null): Record<string, unknown> | null {
     if (!raw) return null;
     try {
@@ -254,6 +315,7 @@ export const validate = (raw: Record<string, unknown>): SaveData => {
   const result = defaults();
   result.input = validateInputSettings(raw.input);
   result.unlockedFloor = Math.floor(finite(raw.unlockedFloor, 1, TOTAL_FLOORS) ?? 1);
+  result.tower = validateTower(raw.tower);
   const source =
     raw.settings && typeof raw.settings === 'object'
       ? (raw.settings as Record<string, unknown>)
@@ -298,6 +360,26 @@ export const validate = (raw: Record<string, unknown>): SaveData => {
       };
     }
   return result;
+};
+export const validateTower = (raw: unknown): TowerRecord => {
+  if (!raw || typeof raw !== 'object') return defaultTower();
+  const value = raw as Record<string, unknown>;
+  const times = (candidate: unknown): Record<string, number> => {
+    const output: Record<string, number> = {};
+    if (!candidate || typeof candidate !== 'object') return output;
+    for (const [key, item] of Object.entries(candidate as Record<string, unknown>))
+      if (Number(key) >= 1 && Number(key) <= TOTAL_FLOORS && finite(item, 1) !== null)
+        output[key] = item as number;
+    return output;
+  };
+  return {
+    completed: value.completed === true,
+    bestTimeMs: finite(value.bestTimeMs, 1),
+    fewestDeaths: finite(value.fewestDeaths, 0),
+    rank: validRank(value.rank),
+    bestFloorTimes: times(value.bestFloorTimes),
+    bestCumulativeTimes: times(value.bestCumulativeTimes),
+  };
 };
 const migrateLegacy = (old: Record<string, unknown> | null): SaveData => {
   const data = defaults();

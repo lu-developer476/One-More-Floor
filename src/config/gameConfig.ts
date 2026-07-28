@@ -10,6 +10,11 @@ import { RunSetupScene } from '../scenes/RunSetupScene';
 import { ControlsScene } from '../scenes/ControlsScene';
 import { MOVEMENT } from './movementConfig';
 import { AnalyticsScene } from '../scenes/AnalyticsScene';
+import { FloorSelectScene } from '../scenes/FloorSelectScene';
+import { TowerSetupScene } from '../scenes/TowerSetupScene';
+import { TowerFloorResultsScene } from '../scenes/TowerFloorResultsScene';
+import { EndingScene } from '../scenes/EndingScene';
+import { TowerResultsScene } from '../scenes/TowerResultsScene';
 
 export const GAME_WIDTH = 960;
 export const GAME_HEIGHT = 540;
@@ -20,7 +25,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game',
   title: 'One More Floor',
-  version: '0.8.0',
+  version: '0.9.0',
   width: GAME_WIDTH,
   height: GAME_HEIGHT,
   backgroundColor: '#080b12',
@@ -58,5 +63,10 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     RunSetupScene,
     ControlsScene,
     AnalyticsScene,
+    FloorSelectScene,
+    TowerSetupScene,
+    TowerFloorResultsScene,
+    EndingScene,
+    TowerResultsScene,
   ],
 };
