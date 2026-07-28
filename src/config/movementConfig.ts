@@ -14,7 +14,7 @@ export const MOVEMENT = Object.freeze({
   jumpBufferMs: 120,
   jumpCutMultiplier: 0.46,
   dashSpeed: 675,
-  dashDurationMs: 150,
+  dashDurationMs: 220,
   dashCooldownMs: 230,
   dashEndMultiplier: 0.58,
   landingThreshold: 235,

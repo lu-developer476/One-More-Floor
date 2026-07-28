@@ -21,6 +21,7 @@ const selectMenuAction = async (page: import('@playwright/test').Page, action: s
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     for (const key of [
+      'one-more-floor.save.v9',
       'one-more-floor.save.v8',
       'one-more-floor.save.v7',
       'one-more-floor.save.v6',
@@ -61,22 +62,22 @@ test('real held keyboard input moves, jumps, dashes, pauses and restarts', async
   await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
   await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
   const startX = await page.evaluate(() => window.__OMF_E2E__?.run()?.x ?? 0);
-  await page.keyboard.down('KeyD');
+  await page.keyboard.down('ArrowRight');
   await page.waitForTimeout(250);
-  await page.keyboard.up('KeyD');
+  await page.keyboard.up('ArrowRight');
   const rightX = await page.evaluate(() => window.__OMF_E2E__?.run()?.x ?? 0);
   expect(rightX).toBeGreaterThan(startX);
-  await page.keyboard.down('KeyA');
+  await page.keyboard.down('ArrowLeft');
   await page.waitForTimeout(250);
-  await page.keyboard.up('KeyA');
+  await page.keyboard.up('ArrowLeft');
   expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.x ?? 0)).toBeLessThan(rightX);
   await page.keyboard.press('Space');
   await page.waitForFunction(() => (window.__OMF_E2E__?.run()?.velocityY ?? 0) < 0);
-  await page.keyboard.press('ShiftLeft');
+  await page.keyboard.press('KeyS');
   await page.waitForFunction(() => window.__OMF_E2E__?.run()?.playerState === 'DASHING');
-  await page.keyboard.press('Escape');
+  await page.keyboard.press('KeyP');
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Pause'));
-  await page.keyboard.press('Escape');
+  await page.keyboard.press('KeyP');
   await page.waitForFunction(() => !window.__OMF_E2E__?.scene().includes('Pause'));
   const attempt = await page.evaluate(() => window.__OMF_E2E__?.run()?.attemptMs ?? 0);
   await page.keyboard.press('KeyR');
@@ -84,6 +85,85 @@ test('real held keyboard input moves, jumps, dashes, pauses and restarts', async
     (oldAttempt) => (window.__OMF_E2E__?.run()?.attemptMs ?? oldAttempt) < oldAttempt,
     attempt,
   );
+});
+
+test('legacy gameplay keys are inactive and Escape does not pause gameplay', async ({ page }) => {
+  await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
+  const start = await page.evaluate(() => window.__OMF_E2E__?.run());
+  await page.keyboard.down('KeyA');
+  await page.waitForTimeout(100);
+  await page.keyboard.up('KeyA');
+  await page.keyboard.down('KeyD');
+  await page.waitForTimeout(100);
+  await page.keyboard.up('KeyD');
+  expect(
+    Math.abs((await page.evaluate(() => window.__OMF_E2E__?.run()?.x ?? 0)) - (start?.x ?? 0)),
+  ).toBeLessThan(8);
+  for (const key of ['KeyW', 'ArrowUp', 'ShiftLeft']) await page.keyboard.press(key);
+  await page.waitForTimeout(50);
+  expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.playerState)).not.toBe('DASHING');
+  expect(
+    await page.evaluate(() => window.__OMF_E2E__?.run()?.velocityY ?? 0),
+  ).toBeGreaterThanOrEqual(0);
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => window.__OMF_E2E__?.scene())).not.toContain('Pause');
+});
+
+test('dash travels its longer real distance and holding S does not repeat it', async ({ page }) => {
+  await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
+  const startX = await page.evaluate(() => window.__OMF_E2E__?.run()?.x ?? 0);
+  await page.keyboard.down('KeyS');
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.playerState === 'DASHING');
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.playerState !== 'DASHING');
+  const endX = await page.evaluate(() => window.__OMF_E2E__?.run()?.x ?? 0);
+  expect(endX - startX).toBeGreaterThan(120);
+  expect(endX - startX).toBeLessThan(180);
+  await page.waitForTimeout(350);
+  expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.playerState)).not.toBe('DASHING');
+  await page.keyboard.up('KeyS');
+});
+
+test('v8 layout migrates once, later remaps persist, and reset-controls keeps progress', async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    localStorage.setItem(
+      'one-more-floor.save.v8',
+      JSON.stringify({
+        version: 8,
+        unlockedFloor: 4,
+        floors: {},
+        settings: {},
+        input: {
+          keyboard: { MOVE_LEFT: 'KeyA', MOVE_RIGHT: 'KeyD', DASH: 'ShiftLeft', PAUSE: 'Escape' },
+        },
+      }),
+    );
+  });
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__OMF_E2E__));
+  expect(await page.evaluate(() => window.__OMF_E2E__?.getBindings())).toMatchObject({
+    keyboardLayoutVersion: 2,
+    keyboard: {
+      MOVE_LEFT: 'ArrowLeft',
+      MOVE_RIGHT: 'ArrowRight',
+      JUMP: 'Space',
+      DASH: 'KeyS',
+      PAUSE: 'KeyP',
+    },
+  });
+  await page.evaluate(() => window.__OMF_E2E__?.setBinding('DASH', 'KeyQ'));
+  await page.reload();
+  await page.waitForFunction(() => Boolean(window.__OMF_E2E__));
+  expect(await page.evaluate(() => window.__OMF_E2E__?.getBindings().keyboard.DASH)).toBe('KeyQ');
+  await page.goto('/?reset-controls');
+  await page.waitForFunction(() => Boolean(window.__OMF_E2E__));
+  expect(await page.evaluate(() => window.__OMF_E2E__?.save())).toMatchObject({
+    unlockedFloor: 4,
+    input: { keyboardLayoutVersion: 2, keyboard: { DASH: 'KeyS', PAUSE: 'KeyP' } },
+  });
 });
 
 test('remapped KeyboardEvent.code works after reload and replaces the old key', async ({
@@ -107,13 +187,13 @@ test('remapped KeyboardEvent.code works after reload and replaces the old key', 
 test('focus loss clears a physically held key', async ({ page }) => {
   await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
   await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
-  await page.keyboard.down('KeyD');
+  await page.keyboard.down('ArrowRight');
   await page.waitForTimeout(100);
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
   const blurredX = await page.evaluate(() => window.__OMF_E2E__?.run()?.x ?? 0);
   await page.waitForTimeout(180);
   const settledX = await page.evaluate(() => window.__OMF_E2E__?.run()?.x ?? 0);
-  await page.keyboard.up('KeyD');
+  await page.keyboard.up('ArrowRight');
   expect(settledX - blurredX).toBeLessThan(35);
 });
 
@@ -124,9 +204,9 @@ test('keyboard starts the unlocked floor and pause resumes without duplicate HUD
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('TowerSetup'));
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Level'));
-  await page.keyboard.press('Escape');
+  await page.keyboard.press('KeyP');
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Pause'));
-  await page.keyboard.press('Escape');
+  await page.keyboard.press('KeyP');
   await page.waitForFunction(() => !window.__OMF_E2E__?.scene().includes('Pause'));
   expect(
     (await page.evaluate(() => window.__OMF_E2E__?.scene())).filter((key) => key === 'UI'),
@@ -152,11 +232,11 @@ test('settings change independently and persist after reload', async ({ page }) 
 test('physical player overlap activates the first split only once', async ({ page }) => {
   await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
   await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
-  await page.keyboard.down('KeyD');
+  await page.keyboard.down('ArrowRight');
   await page.waitForFunction(
     () => (window.__OMF_E2E__?.getCompletedSplits() as unknown[] | undefined)?.length === 1,
   );
-  await page.keyboard.up('KeyD');
+  await page.keyboard.up('ArrowRight');
   expect(await page.evaluate(() => window.__OMF_E2E__?.getCompletedSplits())).toHaveLength(1);
 });
 
@@ -228,7 +308,7 @@ test('best completion persists a ghost and repeat creates its visual player', as
 
 test('showGhost false hides replay without deleting it', async ({ page }) => {
   await page.evaluate(() => {
-    const key = 'one-more-floor.save.v8';
+    const key = 'one-more-floor.save.v9';
     const save = JSON.parse(localStorage.getItem(key) ?? '{}') as {
       settings?: { showGhost?: boolean };
     };
@@ -243,9 +323,9 @@ test('showGhost false hides replay without deleting it', async ({ page }) => {
 test('corrupt and wrong-floor ghosts are isolated', async ({ page }) => {
   await page.evaluate(() => {
     localStorage.setItem(
-      'one-more-floor.save.v8',
+      'one-more-floor.save.v9',
       JSON.stringify({
-        version: 8,
+        version: 9,
         unlockedFloor: 2,
         settings: { showGhost: true },
         floors: {
@@ -283,7 +363,7 @@ test('death and restart discard partial recording without duplicating saved ghos
 test('pause freezes the gameplay clock and ghost', async ({ page }) => {
   await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
   await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
-  await page.keyboard.press('Escape');
+  await page.keyboard.press('KeyP');
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Pause'));
   const before = await page.evaluate(() => window.__OMF_E2E__?.run()?.attemptMs);
   await page.waitForTimeout(100);

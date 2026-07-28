@@ -38,10 +38,10 @@ describe('KeyboardInputSource', () => {
     const doc = new FakeDocument();
     const win = new EventTarget() as KeyboardWindow;
     const source = new KeyboardInputSource(() => true, win, doc);
-    doc.dispatchEvent(keyboardEvent('keydown', 'KeyA'));
+    doc.dispatchEvent(keyboardEvent('keydown', 'KeyQ'));
     win.dispatchEvent(new Event('blur'));
     expect(source.activeCodes.size).toBe(0);
-    doc.dispatchEvent(keyboardEvent('keydown', 'KeyD'));
+    doc.dispatchEvent(keyboardEvent('keydown', 'KeyE'));
     doc.hidden = true;
     doc.dispatchEvent(new Event('visibilitychange'));
     expect(source.activeCodes.size).toBe(0);

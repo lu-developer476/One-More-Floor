@@ -38,7 +38,7 @@ export interface Settings {
   localAnalyticsEnabled: boolean;
 }
 export interface SaveData {
-  version: 8;
+  version: 9;
   unlockedFloor: number;
   floors: Record<string, FloorRecord>;
   settings: Settings;
@@ -76,9 +76,10 @@ export interface TowerCompletionOutcome {
   improvedIndividualFloors: readonly number[];
 }
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
-export const SAVE_KEY = 'one-more-floor.save.v8';
+export const SAVE_KEY = 'one-more-floor.save.v9';
 const KEY = SAVE_KEY;
 const OLD_KEYS = [
+  'one-more-floor.save.v8',
   'one-more-floor.save.v7',
   'one-more-floor.save.v6',
   'one-more-floor.save.v5',
@@ -99,7 +100,7 @@ const defaultSettings = (): Settings => ({
   localAnalyticsEnabled: true,
 });
 const defaults = (): SaveData => ({
-  version: 8,
+  version: 9,
   unlockedFloor: 1,
   floors: {},
   settings: defaultSettings(),

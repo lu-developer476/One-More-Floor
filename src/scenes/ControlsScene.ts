@@ -5,6 +5,7 @@ import { InputManager } from '../input/InputManager';
 import {
   DEFAULT_GAMEPAD_BINDINGS,
   DEFAULT_KEYBOARD_BINDINGS,
+  defaultInputSettings,
   type InputSettings,
 } from '../input/InputBindings';
 import {
@@ -132,8 +133,11 @@ export class ControlsScene extends Phaser.Scene {
       'RESTAURAR CONTROLES',
       'Se perderán tus asignaciones personalizadas.',
       () => {
-        if (this.device === 'keyboard') this.settings.keyboard = { ...DEFAULT_KEYBOARD_BINDINGS };
-        else this.settings.gamepad = { ...DEFAULT_GAMEPAD_BINDINGS };
+        this.settings = {
+          ...defaultInputSettings(),
+          keyboard: { ...DEFAULT_KEYBOARD_BINDINGS },
+          gamepad: { ...DEFAULT_GAMEPAD_BINDINGS },
+        };
         this.dialog = undefined;
         this.persist();
       },

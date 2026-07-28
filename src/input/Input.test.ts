@@ -9,10 +9,20 @@ import {
   validateInputSettings,
 } from './InputValidation';
 import { InputState } from './InputManager';
+import { formatKey, formatPrompt } from './InputPromptFormatter';
 describe('input', () => {
   it('provides valid defaults and isolated recovery', () => {
     const defaults = defaultInputSettings();
-    expect(defaults.keyboard.JUMP).toBe('Space');
+    expect(defaults.keyboard).toMatchObject({
+      MOVE_LEFT: 'ArrowLeft',
+      MOVE_RIGHT: 'ArrowRight',
+      JUMP: 'Space',
+      DASH: 'KeyS',
+      PAUSE: 'KeyP',
+      RESTART: 'KeyR',
+    });
+    expect(defaults.keyboardLayoutVersion).toBe(2);
+    expect(defaults.gamepad).toMatchObject({ JUMP: 0, DASH: 5, PAUSE: 9, RESTART: 4 });
     expect(
       validateInputSettings({ keyboard: { JUMP: 'bad value' }, deadZone: 4 }).keyboard.JUMP,
     ).toBe('Space');
@@ -25,9 +35,18 @@ describe('input', () => {
   });
   it('detects and swaps conflicts', () => {
     const b = defaultInputSettings().keyboard;
-    expect(bindingConflict(b, InputAction.JUMP, 'KeyA')).toBe(InputAction.MOVE_LEFT);
-    const swapped = swapBinding(b, InputAction.JUMP, 'KeyA');
-    expect(swapped.MOVE_LEFT).toBe('Space');
+    expect(bindingConflict(b, InputAction.JUMP, 'KeyS')).toBe(InputAction.DASH);
+    const swapped = swapBinding(b, InputAction.JUMP, 'KeyS');
+    expect(swapped.DASH).toBe('Space');
+  });
+  it('permits shared bindings across domains but not within a domain', () => {
+    const bindings = defaultInputSettings().keyboard;
+    expect(bindingConflict(bindings, InputAction.MOVE_LEFT, 'ArrowLeft')).toBeNull();
+    expect(bindingConflict(bindings, InputAction.MOVE_RIGHT, 'ArrowRight')).toBeNull();
+    expect(bindingConflict(bindings, InputAction.MOVE_LEFT, 'ArrowRight')).toBe(
+      InputAction.MOVE_RIGHT,
+    );
+    expect(bindingConflict(bindings, InputAction.CONFIRM, 'Escape')).toBe(InputAction.BACK);
   });
   it('exposes down pressed released once', () => {
     const state = new InputState(defaultInputSettings());
@@ -42,17 +61,36 @@ describe('input', () => {
     expect(state.wasReleased(InputAction.JUMP)).toBe(false);
   });
   it.each([
-    ['KeyA', InputAction.MOVE_LEFT],
-    ['KeyD', InputAction.MOVE_RIGHT],
+    ['ArrowLeft', InputAction.MOVE_LEFT],
+    ['ArrowRight', InputAction.MOVE_RIGHT],
     ['Space', InputAction.JUMP],
-    ['ShiftLeft', InputAction.DASH],
-    ['Escape', InputAction.PAUSE],
+    ['KeyS', InputAction.DASH],
+    ['KeyP', InputAction.PAUSE],
     ['Escape', InputAction.BACK],
     ['Enter', InputAction.CONFIRM],
   ])('maps DOM code %s to %s', (code, action) => {
     const state = new InputState(defaultInputSettings());
     state.update({ keys: new Set([code]) });
     expect(state.wasPressed(action)).toBe(true);
+  });
+  it('does not map legacy gameplay defaults', () => {
+    const state = new InputState(defaultInputSettings());
+    state.update({ keys: new Set(['KeyA', 'KeyD', 'KeyW', 'ArrowUp', 'ShiftLeft', 'Escape']) });
+    expect(state.axisX).toBe(0);
+    expect(state.wasPressed(InputAction.JUMP)).toBe(false);
+    expect(state.wasPressed(InputAction.DASH)).toBe(false);
+    expect(state.wasPressed(InputAction.PAUSE)).toBe(false);
+    expect(state.wasPressed(InputAction.BACK)).toBe(true);
+  });
+  it('formats layout 2 prompts without physical-code labels', () => {
+    const settings = defaultInputSettings();
+    expect(
+      ['ArrowLeft', 'ArrowRight', 'Space', 'KeyS', 'KeyP', 'KeyR', 'Enter', 'Escape'].map(
+        formatKey,
+      ),
+    ).toEqual(['←', '→', 'ESPACIO', 'S', 'P', 'R', 'ENTER', 'ESC']);
+    expect(formatPrompt(InputAction.DASH, 'keyboard', settings)).toBe('[S]');
+    expect(formatPrompt(InputAction.PAUSE, 'keyboard', settings)).toBe('[P]');
   });
   it('applies deadzone and changes device', () => {
     const state = new InputState(defaultInputSettings());
@@ -76,12 +114,12 @@ describe('input', () => {
   });
   it('keeps previous and next state independent across alternating frames', () => {
     const state = new InputState(defaultInputSettings());
-    const keys = new Set(['KeyA']);
+    const keys = new Set(['ArrowLeft']);
     state.update({ keys });
     keys.clear();
     state.update({ keys });
     expect(state.wasReleased(InputAction.MOVE_LEFT)).toBe(true);
-    keys.add('KeyD');
+    keys.add('ArrowRight');
     state.update({ keys });
     expect(state.wasPressed(InputAction.MOVE_RIGHT)).toBe(true);
     expect(state.isDown(InputAction.MOVE_LEFT)).toBe(false);

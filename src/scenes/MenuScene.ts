@@ -47,7 +47,7 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(480, 100, 'TOWER RUN · v0.9.1', {
+      .text(480, 100, 'TOWER RUN · v0.9.2', {
         fontFamily: 'monospace',
         fontSize: '15px',
         color: '#f5c84c',

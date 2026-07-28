@@ -10,6 +10,73 @@ class MemoryStorage {
   }
 }
 describe('StorageService', () => {
+  it('migrates v8 to v9 and forces layout 2 exactly once', () => {
+    const store = new MemoryStorage();
+    store.values.set(
+      'one-more-floor.save.v8',
+      JSON.stringify({
+        version: 8,
+        unlockedFloor: 4,
+        floors: { '1': { completed: true, bestTimeMs: 900 } },
+        settings: { mute: true },
+        input: {
+          keyboard: {
+            MOVE_LEFT: 'KeyQ',
+            MOVE_RIGHT: 'KeyE',
+            JUMP: 'KeyW',
+            DASH: 'ShiftLeft',
+            PAUSE: 'Escape',
+            RESTART: 'KeyT',
+            MENU_UP: 'KeyI',
+            MENU_DOWN: 'KeyK',
+            MENU_LEFT: 'KeyJ',
+            MENU_RIGHT: 'KeyL',
+            CONFIRM: 'Space',
+            BACK: 'Backspace',
+          },
+          gamepad: { DASH: 7 },
+          deadZone: 0.4,
+          promptStyle: 'xbox',
+        },
+      }),
+    );
+    const data = new StorageService(store).load();
+    expect(data).toMatchObject({ version: 9, unlockedFloor: 4, settings: { mute: true } });
+    expect(data.input.keyboard).toMatchObject({
+      MOVE_LEFT: 'ArrowLeft',
+      MOVE_RIGHT: 'ArrowRight',
+      JUMP: 'Space',
+      DASH: 'KeyS',
+      PAUSE: 'KeyP',
+      RESTART: 'KeyT',
+      MENU_UP: 'KeyI',
+      CONFIRM: 'Space',
+      BACK: 'Backspace',
+    });
+    expect(data.input).toMatchObject({
+      keyboardLayoutVersion: 2,
+      deadZone: 0.4,
+      promptStyle: 'xbox',
+      gamepad: { DASH: 7 },
+    });
+    expect(data.floors['1']?.bestTimeMs).toBe(900);
+  });
+
+  it('preserves a post-migration v9 remap and resetControls preserves progress', () => {
+    const store = new MemoryStorage();
+    const service = new StorageService(store);
+    const save = service.load();
+    save.unlockedFloor = 5;
+    save.input.keyboard.JUMP = 'KeyQ';
+    service.save(save);
+    expect(service.load().input.keyboard.JUMP).toBe('KeyQ');
+    const reset = service.resetControls();
+    expect(reset.unlockedFloor).toBe(5);
+    expect(reset.input.keyboard.JUMP).toBe('Space');
+    expect(reset.input.keyboard.DASH).toBe('KeyS');
+    expect(reset.input.keyboard.PAUSE).toBe('KeyP');
+    expect(reset.input.keyboardLayoutVersion).toBe(2);
+  });
   it('migrates v4 input defaults without losing progress', () => {
     const store = new MemoryStorage();
     store.values.set(
@@ -23,18 +90,19 @@ describe('StorageService', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.version).toBe(8);
+    expect(data.version).toBe(9);
     expect(data.unlockedFloor).toBe(3);
     expect(data.floors['1']?.bestTimeMs).toBe(900);
     expect(data.input.keyboard.JUMP).toBe('Space');
-    expect(data.input.keyboard.DASH).toBe('KeyQ');
+    expect(data.input.keyboard.DASH).toBe('KeyS');
+    expect(data.input.keyboardLayoutVersion).toBe(2);
   });
 
   it('returns defaults for empty and invalid JSON', () => {
     const store = new MemoryStorage();
     expect(new StorageService(store).load().unlockedFloor).toBe(1);
     store.values.set('one-more-floor.save.v3', '{');
-    expect(new StorageService(store).load().version).toBe(8);
+    expect(new StorageService(store).load().version).toBe(9);
   });
   it('clamps and rejects corrupt fields without losing valid settings', () => {
     const store = new MemoryStorage();
@@ -68,7 +136,7 @@ describe('StorageService', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.version).toBe(8);
+    expect(data.version).toBe(9);
     expect(data.settings.showGhost).toBe(true);
     expect(data.unlockedFloor).toBe(2);
     expect(data.settings.reduceFlashes).toBe(false);
@@ -131,7 +199,7 @@ describe('tower persistence v7', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.version).toBe(8);
+    expect(data.version).toBe(9);
     expect(data.unlockedFloor).toBe(4);
     expect(data.floors['1']?.bestTimeMs).toBe(1000);
     expect(data.tower.bestTimeMs).toBeNull();
