@@ -6,6 +6,8 @@ import { calculateRank, nextRankGap, seconds } from '../systems/Statistics';
 import { audioService } from '../services/AudioService';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
+import { formatPrompt } from '../input/InputPromptFormatter';
+import { createFloorRunData } from '../runs/RunContext';
 export class ResultsScene extends Phaser.Scene {
   private manager?: InputManager;
   private resultData?: ResultData;
@@ -46,6 +48,7 @@ export class ResultsScene extends Phaser.Scene {
       this.tweens.add({ targets: heading, scale: 1.08, duration: 420, yoyo: true, repeat: 2 });
       audioService.play('record', 0);
     }
+    const bindings = service.load().input;
     this.add
       .text(
         480,
@@ -63,7 +66,9 @@ export class ResultsScene extends Phaser.Scene {
             : data.eligibility.ghost
               ? 'FANTASMA SIN CAMBIOS'
               : 'RESULTADO NO COMPETITIVO',
-          outcome.bestTheoreticalMs === null ? 'TEÓRICO --' : `TEÓRICO ${seconds(outcome.bestTheoreticalMs)} s`,
+          outcome.bestTheoreticalMs === null
+            ? 'TEÓRICO --'
+            : `TEÓRICO ${seconds(outcome.bestTheoreticalMs)} s`,
           data.final ? `TOTAL ${seconds(data.totalElapsedMs)} s` : '',
         ].filter(Boolean),
         {
@@ -79,7 +84,7 @@ export class ResultsScene extends Phaser.Scene {
       .text(
         480,
         440,
-        `${data.final ? 'ENTER · MENÚ' : 'ENTER / A · SIGUIENTE PISO'}  ·  R REPETIR  ·  M MENÚ`,
+        `${formatPrompt(InputAction.CONFIRM, this.manager.activeDevice, bindings)} ${data.final ? 'MENÚ' : 'SIGUIENTE PISO'} · ${formatPrompt(InputAction.RESTART, this.manager.activeDevice, bindings)} REPETIR · ${formatPrompt(InputAction.BACK, this.manager.activeDevice, bindings)} MENÚ`,
         {
           fontFamily: 'monospace',
           fontSize: '18px',
@@ -98,6 +103,6 @@ export class ResultsScene extends Phaser.Scene {
       this.scene.start('Level', { ...data.context });
     else if (manager.wasPressed(InputAction.CONFIRM))
       if (data.final || data.mode !== 'competitive') this.scene.start('Menu');
-      else this.scene.start('Level', { levelIndex: data.levelIndex + 1, mode: 'competitive' });
+      else this.scene.start('Level', createFloorRunData(data.levelIndex + 1, 'competitive'));
   }
 }

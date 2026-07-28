@@ -7,6 +7,9 @@ import { LEVELS } from './config/levelConfig';
 import type { MenuScene } from './scenes/MenuScene';
 import type { RunSetupScene } from './scenes/RunSetupScene';
 import { LocalAnalyticsService } from './analytics/LocalAnalyticsService';
+import { TowerRunSession } from './runs/TowerRunSession';
+import { TowerCheckpointService } from './runs/TowerCheckpointService';
+import { createTowerFloorRunData } from './runs/RunContext';
 
 export interface E2EHarness {
   scene: () => string[];
@@ -38,6 +41,17 @@ export interface E2EHarness {
   getAnalytics: (floor: number) => unknown;
   clearAnalytics: () => void;
   openAnalytics: () => void;
+  startTower: (mode: 'competitive' | 'assisted') => void;
+  getTowerState: () => unknown;
+  getTowerCheckpoint: () => unknown;
+  completeCurrentTowerFloor: () => void;
+  abandonTower: () => void;
+  resumeTower: () => void;
+  getTowerRecord: () => unknown;
+  openFloorSelect: () => void;
+  openTowerResults: () => void;
+  getMenuItemBounds: () => unknown;
+  getFocusedAction: () => number;
 }
 
 export function installE2EHarness(game: Phaser.Game): void {
@@ -105,6 +119,17 @@ export function installE2EHarness(game: Phaser.Game): void {
     getAnalytics: (floor) => new LocalAnalyticsService(false).load().floors[String(floor)] ?? null,
     clearAnalytics: () => new LocalAnalyticsService(false).clear(),
     openAnalytics: () => game.scene.start('Analytics'),
+    startTower: (mode) => { const session=TowerRunSession.start(mode);new TowerCheckpointService().save(session);game.scene.start('Level',createTowerFloorRunData(0,mode,session.state.sessionId,true)); },
+    getTowerState: () => new TowerCheckpointService().load()?.state ?? null,
+    getTowerCheckpoint: () => new TowerCheckpointService().raw(),
+    completeCurrentTowerFloor: () => game.scene.getScene('Level').events.emit('e2e:complete'),
+    abandonTower: () => { new TowerCheckpointService().clear(); game.scene.start('Menu'); },
+    resumeTower: () => { const session=new TowerCheckpointService().load();if(!session)return;if(session.state.status==='between-floors')session.advance();new TowerCheckpointService().save(session);game.scene.start('Level',createTowerFloorRunData(session.state.nextFloor-1,session.state.mode,session.state.sessionId,true)); },
+    getTowerRecord: () => new StorageService().load().tower,
+    openFloorSelect: () => game.scene.start('FloorSelect',{practice:false}),
+    openTowerResults: () => game.scene.start('TowerResults'),
+    getMenuItemBounds: () => (game.scene.getScene('Menu') as MenuScene).getItemBounds(),
+    getFocusedAction: () => (game.scene.getScene('Menu') as MenuScene).getSelection(),
   };
 }
 

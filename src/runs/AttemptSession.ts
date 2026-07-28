@@ -7,14 +7,16 @@ import {
   SplitTracker,
   type SplitTime,
 } from './SplitTracker';
-import type { SplitDefinition } from '../types/game';
+import type { RunScope, SplitDefinition } from '../types/game';
 
 export interface RunContext {
   readonly levelIndex: number;
   readonly mode: RunMode;
+  readonly scope: RunScope;
   readonly anchorId: string;
   readonly gameplayAssist: boolean;
   readonly allowE2ECompetitive: boolean;
+  readonly towerRunId: string | null;
 }
 export type DeathCause =
   | 'spikes'

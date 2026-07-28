@@ -18,6 +18,7 @@ import { InputAction } from '../input/InputAction';
 import { LocalAnalyticsService } from '../analytics/LocalAnalyticsService';
 import { SplitFeedback } from '../ui/SplitFeedback';
 import { calculateBestTheoretical } from '../systems/SplitComparisons';
+import { createFloorRunData, initialAnchor } from '../runs/RunContext';
 
 const DEATH_FADE_MS = 260;
 const DEATH_RESTART_MS = 480;
@@ -79,12 +80,17 @@ export class LevelScene extends Phaser.Scene {
     this.levelIndex = levelIndex;
     this.deaths = data.deaths ?? 0;
     this.totalElapsedMs = data.totalElapsedMs ?? 0;
-    this.context = Object.freeze({
+    const base = createFloorRunData(
       levelIndex,
-      mode: data.mode ?? 'competitive',
-      anchorId: data.anchorId ?? 'floor01-anchor-start',
-      gameplayAssist: data.gameplayAssist ?? data.mode === 'assisted',
-      allowE2ECompetitive: data.allowE2ECompetitive ?? false,
+      data.mode ?? 'competitive',
+      data.anchorId ?? initialAnchor(levelIndex),
+      data.allowE2ECompetitive,
+    );
+    this.context = Object.freeze({
+      ...base,
+      scope: data.scope ?? base.scope,
+      towerRunId: data.towerRunId ?? null,
+      gameplayAssist: data.gameplayAssist ?? base.gameplayAssist,
     });
   }
 
@@ -186,7 +192,9 @@ export class LevelScene extends Phaser.Scene {
     for (const timedDoor of this.built.timedDoors)
       this.physics.add.collider(this.player, timedDoor.blocker);
     for (const split of this.built.splitZones)
-      this.physics.add.overlap(this.player, split.zone, () => this.triggerSplit(split.definition.id));
+      this.physics.add.overlap(this.player, split.zone, () =>
+        this.triggerSplit(split.definition.id),
+      );
     this.physics.add.overlap(this.player, this.built.door, () => this.finish());
   }
 
@@ -262,10 +270,15 @@ export class LevelScene extends Phaser.Scene {
       eligibility: this.session.eligibility.status,
       practiceAnchor: this.session.context.anchorId,
       nextSplit: this.session.splits.next?.name ?? null,
-      nextReferenceMs: this.session.splits.next ? (this.bestRunSplits[this.session.splits.next.id] ?? null) : null,
+      nextReferenceMs: this.session.splits.next
+        ? (this.bestRunSplits[this.session.splits.next.id] ?? null)
+        : null,
       lastSplit: this.session.splits.current,
       lastDeltaMs: this.lastDeltaMs,
-      bestTheoreticalMs: this.session.context.mode === 'practice' && this.session.splits.omitted.length ? null : this.bestTheoreticalMs,
+      bestTheoreticalMs:
+        this.session.context.mode === 'practice' && this.session.splits.omitted.length
+          ? null
+          : this.bestTheoreticalMs,
     });
   }
 
@@ -300,7 +313,8 @@ export class LevelScene extends Phaser.Scene {
     if (this.dead || this.complete) return;
     this.complete = true;
     const finalSplit = this.level.splits.at(-1);
-    if (finalSplit && this.session.splits.next?.id === finalSplit.id) this.triggerSplit(finalSplit.id);
+    if (finalSplit && this.session.splits.next?.id === finalSplit.id)
+      this.triggerSplit(finalSplit.id);
     if (this.session.splits.next && this.context.mode !== 'practice') {
       this.complete = false;
       return;
@@ -315,13 +329,13 @@ export class LevelScene extends Phaser.Scene {
     this.cameras.main.zoomTo(1.025, 180);
     this.time.delayedCall(260, () => {
       this.scene.stop('UI');
-      this.scene.start('Results', {
+      this.scene.start(this.context.scope === 'tower' ? 'TowerFloorResults' : 'Results', {
         elapsedMs: elapsed,
         deaths: this.deaths,
         floor: this.level.floor,
         levelIndex: this.levelIndex,
         totalElapsedMs: this.totalElapsedMs + elapsed,
-        final: this.levelIndex === 4,
+        final: this.levelIndex === TOTAL_FLOORS - 1,
         ghostRun: result.ghostRun,
         splits: result.cumulativeSplits,
         segments: result.segments,

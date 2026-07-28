@@ -3,6 +3,8 @@ import { LEVELS } from '../config/levelConfig';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
 import { StorageService } from '../services/StorageService';
+import { createFloorRunData } from '../runs/RunContext';
+import { formatPrompt } from '../input/InputPromptFormatter';
 export class RunSetupScene extends Phaser.Scene {
   private floor = 0;
   private mode = 0;
@@ -55,11 +57,14 @@ export class RunSetupScene extends Phaser.Scene {
     if (this.inputManager.wasPressed(InputAction.BACK)) this.scene.start('Menu');
     if (this.inputManager.wasPressed(InputAction.CONFIRM)) {
       const level = LEVELS[this.floor]!;
-      this.scene.start('Level', {
-        levelIndex: this.floor,
-        mode: this.mode ? 'practice' : 'competitive',
-        anchorId: this.mode ? level.practiceAnchors[this.anchor]!.id : level.practiceAnchors[0]!.id,
-      });
+      this.scene.start(
+        'Level',
+        createFloorRunData(
+          this.floor,
+          this.mode ? 'practice' : 'competitive',
+          this.mode ? level.practiceAnchors[this.anchor]!.id : level.practiceAnchors[0]!.id,
+        ),
+      );
     }
     this.render();
   }
@@ -71,7 +76,7 @@ export class RunSetupScene extends Phaser.Scene {
       this.mode
         ? `ANCHOR: ${level.practiceAnchors[this.anchor]!.name}`
         : 'PB, RANGO Y GHOST HABILITADOS',
-      '←→ MODO · ↑↓ ANCHOR · ENTER CONFIRMAR · ESC VOLVER',
+      `${formatPrompt(InputAction.CONFIRM, this.inputManager.activeDevice, new StorageService().load().input)} CONFIRMAR · ${formatPrompt(InputAction.BACK, this.inputManager.activeDevice, new StorageService().load().input)} VOLVER`,
     ]);
   }
 }
