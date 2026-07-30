@@ -1,3 +1,11 @@
+## 1.1.1
+
+- Doble salto real y repetible con feedback procedural y HUD accesible.
+- MANTENIMIENTO ajustado para un cruce justo y tutorial contextual.
+- Progresión por número de piso con reparación segura de partidas.
+- Migración de las pantallas restantes al sistema UX/UI compartido.
+- Validación y pruebas ampliadas para movimiento, interfaz y navegador.
+
 # Changelog
 
 ## 1.1.0

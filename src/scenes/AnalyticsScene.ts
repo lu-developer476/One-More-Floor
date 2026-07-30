@@ -1,3 +1,4 @@
+import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
@@ -18,6 +19,7 @@ export class AnalyticsScene extends Phaser.Scene {
     super('Analytics');
   }
   create(): void {
+    new ScreenShell(this, 'ESTADÍSTICAS', 'Navegación accesible · foco visible · volver siempre disponible');
     const save = new StorageService().load();
     this.manager = new InputManager(this, save.input);
     this.manager.blockInherited();
@@ -35,7 +37,7 @@ export class AnalyticsScene extends Phaser.Scene {
       this.add
         .text(55, 82 + i * 44, label, {
           fontFamily: 'monospace',
-          fontSize: '15px',
+          fontSize: '16px',
           color: '#91a6b6',
           backgroundColor: '#16232c',
           padding: { x: 8, y: 5 },
@@ -46,7 +48,7 @@ export class AnalyticsScene extends Phaser.Scene {
     );
     this.detail = this.add.text(270, 90, '', {
       fontFamily: 'monospace',
-      fontSize: '15px',
+      fontSize: '16px',
       color: '#d9e7ed',
       lineSpacing: 7,
     });
@@ -55,7 +57,7 @@ export class AnalyticsScene extends Phaser.Scene {
         480,
         505,
         `${formatPrompt(InputAction.CONFIRM, this.manager.activeDevice, save.input)} ELEGIR · ${formatPrompt(InputAction.BACK, this.manager.activeDevice, save.input)} VOLVER`,
-        { fontFamily: 'monospace', fontSize: '13px', color: '#91a6b6' },
+        { fontFamily: 'monospace', fontSize: '16px', color: '#91a6b6' },
       )
       .setOrigin(0.5);
     this.select(0);

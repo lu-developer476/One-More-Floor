@@ -1,3 +1,4 @@
+import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
 import { LEVELS } from '../config/levelConfig';
 import { InputManager } from '../input/InputManager';
@@ -21,6 +22,7 @@ export class RunSetupScene extends Phaser.Scene {
     this.floor = data.levelIndex;
   }
   create() {
+    new ScreenShell(this, 'PREPARAR INTENTO', 'Navegación accesible · foco visible · volver siempre disponible');
     this.inputManager = new InputManager(this, new StorageService().load().input);
     this.inputManager.blockInherited();
     this.add.rectangle(480, 270, 760, 430, 0x071018, 0.98).setStrokeStyle(2, 0x5ef1ff);

@@ -1,3 +1,4 @@
+import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
 import type { ResultData } from '../types/game';
 import { LEVELS } from '../config/levelConfig';
@@ -22,6 +23,7 @@ export class TowerFloorResultsScene extends Phaser.Scene {
     super('TowerFloorResults');
   }
   create(data: ResultData): void {
+    new ScreenShell(this, 'RESULTADO DE PISO', 'Navegación accesible · foco visible · volver siempre disponible');
     this.resultData = data;
     const level = LEVELS[data.levelIndex];
     if (!level) throw new Error('Invalid result');

@@ -2,6 +2,7 @@ import type { Settings } from './StorageService';
 
 export type Effect =
   | 'jump'
+  | 'airJump'
   | 'land'
   | 'dash'
   | 'wallJump'
@@ -20,6 +21,7 @@ export type Effect =
 
 const tones: Record<Effect, number> = {
   jump: 440,
+  airJump: 740,
   land: 110,
   dash: 220,
   wallJump: 520,

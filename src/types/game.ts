@@ -114,6 +114,7 @@ export interface HudData {
   durationMs: number;
   deaths: number;
   dashReady: boolean;
+  airJumpReady: boolean;
   paused: boolean;
   progress: number;
   attemptMs: number;

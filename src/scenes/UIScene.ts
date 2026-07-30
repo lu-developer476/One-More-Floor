@@ -1,3 +1,4 @@
+import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
 import { eventBus, Events } from '../utils/EventBus';
 import type { HudData } from '../types/game';
@@ -7,20 +8,25 @@ export class UIScene extends Phaser.Scene {
   private timer!: Phaser.GameObjects.Text;
   private stats!: Phaser.GameObjects.Text;
   private dash!: Phaser.GameObjects.Text;
+  private jump!: Phaser.GameObjects.Text;
   private bar!: Phaser.GameObjects.Rectangle;
   private splits!: Phaser.GameObjects.Text;
   constructor() {
     super('UI');
   }
   create(): void {
+    new ScreenShell(this, 'ESTADO DEL INTENTO', 'Navegación accesible · foco visible · volver siempre disponible');
     const style = { fontFamily: 'monospace', fontSize: '17px', color: '#fff' };
-    this.add.rectangle(480, 30, 930, 45, 0x071018, 0.82).setStrokeStyle(1, 0x526c7e);
+    this.add.rectangle(480, 38, 912, 60, 0x071018, 0.9).setStrokeStyle(1, 0x526c7e);
+    this.add.rectangle(135, 492, 220, 62, 0x071018, 0.9).setStrokeStyle(1, 0x526c7e);
+    this.add.rectangle(790, 472, 290, 112, 0x071018, 0.9).setStrokeStyle(1, 0x526c7e);
     this.title = this.add.text(30, 20, '', style);
     this.timer = this.add.text(480, 20, '', style).setOrigin(0.5, 0);
     this.stats = this.add.text(930, 20, '', style).setOrigin(1, 0);
-    this.dash = this.add.text(30, 495, 'DASH ●', style);
+    this.dash = this.add.text(42, 474, 'DASH  ●', style);
+    this.jump = this.add.text(42, 502, 'SALTO EXTRA  ●', style);
     this.bar = this.add.rectangle(480, 525, 0, 4, 0x5ef1ff).setOrigin(0, 0.5);
-    this.splits = this.add.text(930, 475, '', { ...style, fontSize: '14px', align: 'right' }).setOrigin(1, 0);
+    this.splits = this.add.text(920, 430, '', { ...style, fontSize: '16px', align: 'right' }).setOrigin(1, 0);
     eventBus.on(Events.HUD, this.onHud, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
   }
@@ -38,6 +44,9 @@ export class UIScene extends Phaser.Scene {
     this.dash
       .setText(data.dashReady ? 'DASH ●' : 'DASH ○')
       .setColor(data.dashReady ? '#5ef1ff' : '#667782');
+    this.jump
+      .setText(data.airJumpReady ? 'SALTO EXTRA  ●' : 'SALTO EXTRA  ○')
+      .setColor(data.airJumpReady ? '#77f29a' : '#667782');
     const delta = data.lastDeltaMs === null ? 'SIN REFERENCIA' : `${data.lastDeltaMs < 0 ? '−' : '+'}${(Math.abs(data.lastDeltaMs) / 1000).toFixed(2)} s`;
     this.splits.setText([
       `PRÓXIMO ${data.nextSplit ?? 'META'}${data.nextReferenceMs === null ? '' : ` · PB ${(data.nextReferenceMs / 1000).toFixed(2)}`}`,

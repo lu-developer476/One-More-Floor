@@ -135,7 +135,11 @@ export class StorageService {
   load(): SaveData {
     if (!this.storage) return defaults();
     const current = this.parse(this.storage.getItem(KEY));
-    if (current) return validate(current);
+    if (current) {
+      const repaired = validate(current);
+      this.save(repaired);
+      return repaired;
+    }
     for (const key of OLD_KEYS) {
       const old = this.parse(this.storage.getItem(key));
       if (old) {
@@ -234,8 +238,7 @@ export class StorageService {
       bestSegments,
     };
     const previousUnlocked = data.unlockedFloor;
-    if (policy.progress)
-      data.unlockedFloor = Math.min(TOTAL_FLOORS, Math.max(data.unlockedFloor, floor + 1));
+    if (policy.progress) unlockAfterCompletion(data, floor);
     this.save(data);
     const level = LEVELS[floor - 1];
     return {
@@ -454,7 +457,32 @@ export const validate = (raw: Record<string, unknown>): SaveData => {
         bestSegments: validTimes(record.bestSegments),
       };
     }
-  return result;
+  return reconcileFloorProgress(result);
+};
+
+export const isFloorUnlocked = (save: SaveData, floorNumber: number): boolean =>
+  Number.isInteger(floorNumber) && floorNumber >= 1 && floorNumber <= save.unlockedFloor;
+
+export const getNextFloor = (floorNumber: number): number | null =>
+  Number.isInteger(floorNumber) && floorNumber >= 1 && floorNumber < TOTAL_FLOORS
+    ? floorNumber + 1
+    : null;
+
+export const unlockAfterCompletion = (save: SaveData, floorNumber: number): SaveData => {
+  const next = getNextFloor(floorNumber);
+  if (next !== null) save.unlockedFloor = Math.max(save.unlockedFloor, next);
+  return save;
+};
+
+/** Repairs only contiguous completion progress and never reduces a valid unlock. */
+export const reconcileFloorProgress = (save: SaveData): SaveData => {
+  let contiguous = 0;
+  for (let floor = 1; floor <= TOTAL_FLOORS; floor += 1) {
+    if (save.floors[String(floor)]?.completed !== true) break;
+    contiguous = floor;
+  }
+  save.unlockedFloor = Math.min(TOTAL_FLOORS, Math.max(save.unlockedFloor, contiguous + 1));
+  return save;
 };
 const containsUnsafeKey = (value: unknown): boolean => {
   if (!value || typeof value !== 'object') return false;

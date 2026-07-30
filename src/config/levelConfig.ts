@@ -141,11 +141,14 @@ const maintenance = {
   ],
   spikes: [
     { x: 1120, y: 660, width: 96 },
-    { x: 2350, y: 660, width: 220 },
+    { x: 2320, y: 660, width: 160 },
   ],
   tutorials: [
-    { x: 450, y: 570, action: InputAction.DASH, suffix: '  DASH' },
+    { x: 210, y: 570, action: InputAction.JUMP, suffix: '  SALTAR' },
+    { x: 360, y: 535, action: InputAction.JUMP, suffix: '  OTRA VEZ · DOBLE SALTO' },
+    { x: 520, y: 570, action: InputAction.DASH, suffix: '  DASH' },
     { x: 1390, y: 580, text: '⚡ PARPADEO = ACTIVACIÓN' },
+    { x: 2200, y: 570, text: 'DOBLE SALTO O SALTO + DASH' },
   ],
 };
 const ventilation = {

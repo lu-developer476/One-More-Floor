@@ -6,6 +6,7 @@ import { Events } from '../utils/EventBus';
 import { classifyLanding } from '../systems/PhysicsMath';
 import { InputAction } from '../input/InputAction';
 import type { InputManager } from '../input/InputManager';
+import { resolveJump, type JumpKind } from './JumpResolver';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   readonly states = new PlayerStateMachine();
@@ -24,6 +25,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private previousVelocityY = 0;
   private landingEndsAt = 0;
   private visualState?: PlayerState;
+  private airJumpsRemaining = MOVEMENT.maxAirJumps;
+  private lastJumpKind: JumpKind | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -58,6 +61,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   get coyoteRemainingMs(): number {
     return Math.max(0, MOVEMENT.coyoteMs - (this.scene.time.now - this.lastGroundedAt));
   }
+  get airJumpAvailable(): boolean {
+    return this.airJumpsRemaining > 0;
+  }
+  get jumpKind(): JumpKind | null {
+    return this.lastJumpKind;
+  }
 
   unlock(): void {
     this.states.unlock();
@@ -86,7 +95,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.isDashing && wall) this.endDash();
     else if (this.dashInProgress && !this.isDashing) this.endDash();
 
-    this.consumeQueuedJump(now, grounded, wall, body);
+    this.consumeQueuedJump(now, grounded, wall, body, jumpPressed);
     if (dashPressed) this.tryStartDash(direction);
 
     if (this.isDashing) this.applyDashMovement();
@@ -109,6 +118,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (grounded) {
       this.lastGroundedAt = now;
       this.airDash = true;
+      if (!this.wasGrounded) this.airJumpsRemaining = MOVEMENT.maxAirJumps;
     }
     if (wall) {
       this.lastWallAt = now;
@@ -125,15 +135,24 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     grounded: boolean,
     wall: boolean,
     body: Phaser.Physics.Arcade.Body,
+    freshPress: boolean,
   ): void {
     if (!this.jumpQueued) return;
-    const canGroundJump = grounded || now - this.lastGroundedAt <= MOVEMENT.coyoteMs;
-    const canWallJump = !grounded && (wall || now - this.lastWallAt <= MOVEMENT.wallCoyoteMs);
-    if (!canGroundJump && !canWallJump) return;
-
-    this.setVelocityY(canWallJump ? -MOVEMENT.wallJumpY : -MOVEMENT.jumpSpeed);
+    const decision = resolveJump({
+      grounded,
+      withinCoyote: !grounded && now - this.lastGroundedAt <= MOVEMENT.coyoteMs,
+      atWall: !grounded && wall,
+      withinWallCoyote: !grounded && now - this.lastWallAt <= MOVEMENT.wallCoyoteMs,
+      airJumpsRemaining: this.airJumpsRemaining,
+      freshPress,
+    });
+    if (!decision.performed) return;
+    this.lastJumpKind = decision.kind;
+    if (decision.consumeAirJump) this.airJumpsRemaining -= 1;
+    this.setVelocityY(-decision.impulseY);
     this.scene.events.emit(Events.PLAYER_JUMP, this.x, this.y);
-    if (canWallJump) {
+    if (decision.kind === 'air') this.scene.events.emit(Events.PLAYER_AIR_JUMP, this.x, this.y);
+    if (decision.kind === 'wall') {
       const wallDirection = wall ? (body.blocked.left ? 1 : -1) : this.lastWallDirection;
       this.setVelocityX(wallDirection * MOVEMENT.wallJumpX);
       this.directionLockedUntil = now + MOVEMENT.wallJumpLockMs;

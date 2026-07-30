@@ -78,6 +78,8 @@ export class LevelScene extends Phaser.Scene {
       isDashing: this.player?.isDashing ?? false,
       dashRemainingMs: this.player?.dashRemainingMs ?? 0,
       jumpEvents: this.jumpEvents,
+      airJumpAvailable: this.player?.airJumpAvailable ?? false,
+      lastJumpKind: this.player?.jumpKind ?? null,
       dashEvents: this.dashEvents,
     };
   }
@@ -155,6 +157,7 @@ export class LevelScene extends Phaser.Scene {
     this.events.on(Events.PLAYER_LAND, this.onLand, this);
     this.events.on(Events.PLAYER_WALL_JUMP, this.onWallJump, this);
     this.events.on(Events.PLAYER_JUMP, this.onJump, this);
+    this.events.on(Events.PLAYER_AIR_JUMP, this.onAirJump, this);
     this.events.on(Events.DOOR_STATE, this.onDoorState, this);
     eventBus.on(Events.SETTINGS_CHANGED, this.applySettings, this);
     eventBus.on(Events.PAUSE_RESTART, this.restart, this);
@@ -270,6 +273,7 @@ export class LevelScene extends Phaser.Scene {
       durationMs: this.level.durationMs,
       deaths: this.deaths,
       dashReady: this.player.dashAvailable,
+      airJumpReady: this.player.airJumpAvailable,
       paused,
       progress: this.player.x / this.level.width,
       attemptMs: this.session.attemptMs,
@@ -419,6 +423,20 @@ export class LevelScene extends Phaser.Scene {
     audioService.play('jump');
   }
 
+  private onAirJump(x: number, y: number): void {
+    const settings = new StorageService().load().settings;
+    audioService.play('airJump');
+    if (settings.particleIntensity !== 'off')
+      this.environment.burstSmoke(x, y + 12, settings.particleIntensity === 'reduced' ? 3 : 7);
+    this.tweens.add({
+      targets: this.player,
+      scaleX: 1.14,
+      scaleY: 0.88,
+      yoyo: true,
+      duration: settings.reduceFlashes ? 55 : 80,
+    });
+  }
+
   private onDoorState(): void {
     audioService.play('door', 200);
   }
@@ -495,6 +513,7 @@ export class LevelScene extends Phaser.Scene {
     this.events.off(Events.PLAYER_LAND, this.onLand, this);
     this.events.off(Events.PLAYER_WALL_JUMP, this.onWallJump, this);
     this.events.off(Events.PLAYER_JUMP, this.onJump, this);
+    this.events.off(Events.PLAYER_AIR_JUMP, this.onAirJump, this);
     this.events.off(Events.DOOR_STATE, this.onDoorState, this);
     eventBus.off(Events.SETTINGS_CHANGED, this.applySettings, this);
     eventBus.off(Events.PAUSE_RESTART, this.restart, this);
