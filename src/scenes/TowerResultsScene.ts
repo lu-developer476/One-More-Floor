@@ -1,3 +1,4 @@
+import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
 import type { TowerCheckpoint } from '../runs/TowerRunSession';
 import { calculateTowerRank } from '../runs/TowerRank';
@@ -21,6 +22,7 @@ export class TowerResultsScene extends Phaser.Scene {
     super('TowerResults');
   }
   create(data: { checkpoint: TowerCheckpoint; outcome: TowerCompletionOutcome }): void {
+    new ScreenShell(this, 'RESULTADO DE TORRE', 'Navegación accesible · foco visible · volver siempre disponible');
     const save = data.outcome.save;
     this.manager = new InputManager(this, save.input);
     this.manager.blockInherited();
@@ -64,7 +66,7 @@ export class TowerResultsScene extends Phaser.Scene {
           .join('\n'),
         {
           fontFamily: 'monospace',
-          fontSize: '15px',
+          fontSize: '16px',
           color: '#fff',
           align: 'center',
           lineSpacing: 3,
@@ -94,7 +96,7 @@ export class TowerResultsScene extends Phaser.Scene {
         480,
         505,
         `${formatPrompt(InputAction.CONFIRM, this.manager.activeDevice, save.input)} ACEPTAR · ${formatPrompt(InputAction.BACK, this.manager.activeDevice, save.input)} MENÚ`,
-        { fontFamily: 'monospace', fontSize: '13px', color: '#f5c84c' },
+        { fontFamily: 'monospace', fontSize: '16px', color: '#f5c84c' },
       )
       .setOrigin(0.5);
     this.select(0);

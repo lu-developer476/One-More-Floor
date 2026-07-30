@@ -1,6 +1,7 @@
+import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
 import { LEVELS } from '../config/levelConfig';
-import { StorageService } from '../services/StorageService';
+import { isFloorUnlocked, StorageService } from '../services/StorageService';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
 import { createFloorRunData } from '../runs/RunContext';
@@ -18,6 +19,7 @@ export class FloorSelectScene extends Phaser.Scene {
     this.practice = data.practice === true;
   }
   create(): void {
+    new ScreenShell(this, 'PISOS', 'Navegación accesible · foco visible · volver siempre disponible');
     const save = new StorageService().load();
     this.manager = new InputManager(this, save.input);
     this.manager.blockInherited();
@@ -34,7 +36,7 @@ export class FloorSelectScene extends Phaser.Scene {
         .text(
           85,
           105 + i * 58,
-          `${i < save.unlockedFloor ? '' : '🔒 '}PISO ${level.floor} · ${level.name}`,
+          `${isFloorUnlocked(save, level.floor) ? '' : '🔒 '}PISO ${level.floor} · ${level.name}`,
           { fontFamily: 'monospace', fontSize: '16px', color: '#91a6b6' },
         )
         .setInteractive()
@@ -50,7 +52,7 @@ export class FloorSelectScene extends Phaser.Scene {
     this.add
       .text(480, 500, 'CONFIRMAR · ELEGIR    VOLVER · MENÚ', {
         fontFamily: 'monospace',
-        fontSize: '14px',
+        fontSize: '16px',
         color: '#f5c84c',
       })
       .setOrigin(0.5);
@@ -75,7 +77,7 @@ export class FloorSelectScene extends Phaser.Scene {
     this.items.forEach((x, n) => x.setColor(n === i ? '#fff' : '#91a6b6'));
     this.detail.setText([
       `PISO ${level.floor}`,
-      i < save.unlockedFloor ? 'DESBLOQUEADO' : 'BLOQUEADO',
+      isFloorUnlocked(save, level.floor) ? 'DESBLOQUEADO · CONFIRMAR PARA INICIAR' : 'BLOQUEADO · COMPLETÁ EL PISO ANTERIOR',
       `PB ${record?.bestTimeMs ? `${(record.bestTimeMs / 1000).toFixed(2)} s` : '--'}`,
       `RANGO ${record?.rank ?? '--'}`,
       `GHOST ${record?.bestGhost ? 'SÍ' : 'NO'}`,
@@ -84,7 +86,7 @@ export class FloorSelectScene extends Phaser.Scene {
   }
   private confirm(): void {
     const save = new StorageService().load();
-    if (this.selected >= save.unlockedFloor) return;
+    if (!isFloorUnlocked(save, LEVELS[this.selected]!.floor)) return;
     if (this.practice) this.scene.start('RunSetup', { levelIndex: this.selected });
     else this.scene.start('Level', createFloorRunData(this.selected));
   }

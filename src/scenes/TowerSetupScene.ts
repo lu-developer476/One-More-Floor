@@ -1,3 +1,4 @@
+import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
@@ -19,6 +20,7 @@ export class TowerSetupScene extends Phaser.Scene {
     super('TowerSetup');
   }
   create(): void {
+    new ScreenShell(this, 'TOWER RUN', 'Navegación accesible · foco visible · volver siempre disponible');
     const save = new StorageService().load();
     this.manager = new InputManager(this, save.input);
     this.manager.blockInherited();
@@ -57,7 +59,7 @@ export class TowerSetupScene extends Phaser.Scene {
         480,
         485,
         `${formatPrompt(InputAction.CONFIRM, this.manager.activeDevice, save.input)} ACEPTAR · ${formatPrompt(InputAction.BACK, this.manager.activeDevice, save.input)} VOLVER`,
-        { fontFamily: 'monospace', fontSize: '14px', color: '#f5c84c' },
+        { fontFamily: 'monospace', fontSize: '16px', color: '#f5c84c' },
       )
       .setOrigin(0.5);
     this.select(0);

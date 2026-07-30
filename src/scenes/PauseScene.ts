@@ -1,3 +1,4 @@
+import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
 import { audioService } from '../services/AudioService';
 import { eventBus, Events } from '../utils/EventBus';
@@ -20,6 +21,7 @@ export class PauseScene extends Phaser.Scene {
     super('Pause');
   }
   create(data: { context: RunContext }): void {
+    new ScreenShell(this, 'PAUSA', 'Navegación accesible · foco visible · volver siempre disponible');
     this.context = data.context;
     this.options = [
       ...commonOptions,

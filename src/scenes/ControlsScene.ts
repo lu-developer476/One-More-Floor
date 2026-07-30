@@ -1,3 +1,4 @@
+import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
 import { StorageService } from '../services/StorageService';
 import { InputAction, type InputAction as Action } from '../input/InputAction';
@@ -19,6 +20,20 @@ const rows: readonly ControlRow[] = [
   'RESTORE',
   'BACK',
 ];
+const humanName: Record<Action, string> = {
+  [InputAction.MOVE_LEFT]: 'MOVER A LA IZQUIERDA',
+  [InputAction.MOVE_RIGHT]: 'MOVER A LA DERECHA',
+  [InputAction.JUMP]: 'SALTAR',
+  [InputAction.DASH]: 'DASH',
+  [InputAction.PAUSE]: 'PAUSA',
+  [InputAction.RESTART]: 'REINICIAR',
+  [InputAction.MENU_UP]: 'MENÚ: ARRIBA',
+  [InputAction.MENU_DOWN]: 'MENÚ: ABAJO',
+  [InputAction.MENU_LEFT]: 'MENÚ: IZQUIERDA',
+  [InputAction.MENU_RIGHT]: 'MENÚ: DERECHA',
+  [InputAction.CONFIRM]: 'CONFIRMAR',
+  [InputAction.BACK]: 'VOLVER / CANCELAR',
+};
 
 export class ControlsScene extends Phaser.Scene {
   private service = new StorageService();
@@ -35,6 +50,7 @@ export class ControlsScene extends Phaser.Scene {
     super('Controls');
   }
   create(): void {
+    new ScreenShell(this, 'CONTROLES', 'Navegación accesible · foco visible · volver siempre disponible');
     this.settings = this.service.load().input;
     this.manager = new InputManager(this, this.settings);
     this.manager.blockInherited();
@@ -42,11 +58,14 @@ export class ControlsScene extends Phaser.Scene {
     this.add
       .text(480, 25, 'CONTROLES', { fontFamily: 'monospace', fontSize: '26px', color: '#5ef1ff' })
       .setOrigin(0.5);
+    this.add.text(55, 78, 'MOVIMIENTO\n\n\n\nSISTEMA\n\n\nNAVEGACIÓN', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#5ef1ff', lineSpacing: 18,
+    });
     this.labels = rows.map((_row, index) =>
       this.add
-        .text(480, 53 + index * 24, '', {
+        .text(570, 90 + index * 46, '', {
           fontFamily: 'monospace',
-          fontSize: '14px',
+          fontSize: '16px',
           color: '#91a6b6',
         })
         .setOrigin(0.5)
@@ -58,7 +77,7 @@ export class ControlsScene extends Phaser.Scene {
         .on('pointerdown', () => this.activate(1)),
     );
     this.message = this.add
-      .text(480, 500, '', { fontFamily: 'monospace', fontSize: '13px', color: '#f5c84c' })
+      .text(480, 500, '', { fontFamily: 'monospace', fontSize: '16px', color: '#f5c84c' })
       .setOrigin(0.5);
     this.render();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
@@ -191,8 +210,12 @@ export class ControlsScene extends Phaser.Scene {
       else if (row === 'DEADZONE') value = `DEADZONE: ${this.settings.deadZone.toFixed(2)}`;
       else if (row === 'PROMPTS') value = `ESTILO: ${this.settings.promptStyle.toUpperCase()}`;
       else if (editable.includes(row as Action))
-        value = `${row.padEnd(12)} ${this.device === 'keyboard' ? formatKey(this.settings.keyboard[row as Action]) : `BOTÓN ${this.settings.gamepad[row as Action]}`}`;
+        value = `${humanName[row as Action]} · ${this.device === 'keyboard' ? formatKey(this.settings.keyboard[row as Action]) : `BOTÓN ${this.settings.gamepad[row as Action]}`}`;
+      const scrollStart = Phaser.Math.Clamp(this.selected - 4, 0, Math.max(0, rows.length - 9));
+      const visible = index >= scrollStart && index < scrollStart + 9;
       label
+        .setVisible(visible)
+        .setY(90 + (index - scrollStart) * 46)
         .setText(`${index === this.selected ? '▶' : ' '} ${value}`)
         .setColor(index === this.selected ? '#fff' : '#91a6b6');
     });

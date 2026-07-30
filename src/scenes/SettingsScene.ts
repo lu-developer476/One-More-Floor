@@ -1,3 +1,4 @@
+import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
 import { StorageService, type Settings } from '../services/StorageService';
 import { audioService } from '../services/AudioService';
@@ -42,7 +43,7 @@ const labels: readonly (
 const names: Record<(typeof labels)[number], string> = {
   volume: 'VOLUMEN',
   mute: 'SILENCIO',
-  screenShake: 'SCREEN SHAKE',
+  screenShake: 'SACUDIDA DE CÁMARA',
   reducedShake: 'INTENSIDAD REDUCIDA',
   reduceFlashes: 'REDUCIR FLASHES',
   highContrast: 'ALTO CONTRASTE',
@@ -50,14 +51,14 @@ const names: Record<(typeof labels)[number], string> = {
   localAnalyticsEnabled: 'ESTADÍSTICAS LOCALES',
   particleIntensity: 'INTENSIDAD DE PARTÍCULAS',
   fullscreen: 'PANTALLA COMPLETA',
-  controls: 'CONTROLES',
+  controls: 'PERSONALIZAR CONTROLES',
   copyBackup: 'COPIAR COPIA DE SEGURIDAD',
   importBackup: 'IMPORTAR DESDE PORTAPAPELES',
   clearGhosts: 'BORRAR FANTASMAS',
   clearRecords: 'BORRAR RÉCORDS',
   clearAnalytics: 'BORRAR ESTADÍSTICAS LOCALES',
   resetProgress: 'BORRAR TODO EL PROGRESO',
-  reset: 'RESTAURAR PREDETERMINADOS',
+  reset: 'RESTAURAR AJUSTES',
   back: 'VOLVER',
 };
 
@@ -73,6 +74,7 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   create(): void {
+    new ScreenShell(this, 'AJUSTES', 'Navegación accesible · foco visible · volver siempre disponible');
     const save = this.service.load();
     this.settings = save.settings;
     this.manager = new InputManager(this, save.input);
@@ -81,15 +83,23 @@ export class SettingsScene extends Phaser.Scene {
     this.add
       .text(480, 28, 'AJUSTES', { fontFamily: 'monospace', fontSize: '32px', color: '#5ef1ff' })
       .setOrigin(0.5);
+    this.add.text(150, 92, 'AUDIO\n\nIMAGEN Y ACCESIBILIDAD\n\nJUGABILIDAD\n\nCONTROLES\n\nDATOS LOCALES', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#d9e7ed', lineSpacing: 12,
+    });
+    this.add.rectangle(480, 455, 620, 58, 0x301018, 0.75).setStrokeStyle(2, 0xff405c);
+    this.add.text(480, 455, 'ZONA DE PELIGRO · BORRAR TODO EL PROGRESO', {
+      fontFamily: 'monospace', fontSize: '16px', color: '#ff8192',
+    }).setOrigin(0.5);
     this.items = labels.map((_key, index) => {
       const item = this.add
-        .text(480, 56 + index * 24, '', {
+        .text(620, 88 + index * 44, '', {
           fontFamily: 'monospace',
-          fontSize: '14px',
+          fontSize: '16px',
           color: '#91a6b6',
         })
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true });
+      item.setVisible(index < 6);
       item.on('pointerover', () => this.select(index));
       item.on('pointerdown', () => this.change(1));
       return item;
@@ -157,7 +167,10 @@ export class SettingsScene extends Phaser.Scene {
   private render(): void {
     this.items.forEach((item, index) => {
       const key = labels[index]!;
+      const scrollStart = Phaser.Math.Clamp(this.selected - 2, 0, labels.length - 6);
       item
+        .setVisible(index >= scrollStart && index < scrollStart + 6)
+        .setY(104 + (index - scrollStart) * 52)
         .setText(
           `${index === this.selected ? '▶ ' : '  '}${names[key]}${this.value(key) ? `: ${this.value(key)}` : ''}`,
         )
@@ -267,7 +280,7 @@ export class SettingsScene extends Phaser.Scene {
   }
   private showMessage(message: string): void {
     const text = this.add
-      .text(480, 515, message, { fontFamily: 'monospace', fontSize: '13px', color: '#f5c84c' })
+      .text(480, 515, message, { fontFamily: 'monospace', fontSize: '16px', color: '#f5c84c' })
       .setOrigin(0.5);
     this.time.delayedCall(2500, () => text.destroy());
   }

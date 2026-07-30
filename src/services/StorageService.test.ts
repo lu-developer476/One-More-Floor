@@ -115,7 +115,7 @@ describe('StorageService', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.unlockedFloor).toBe(1);
+    expect(data.unlockedFloor).toBe(2);
     expect(data.settings).toMatchObject({ volume: 0.7, mute: true, highContrast: true });
     expect(data.floors['1']).toMatchObject({
       bestTimeMs: null,

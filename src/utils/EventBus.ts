@@ -7,6 +7,7 @@ export const Events = {
   COMPLETE: 'level:complete',
   SETTINGS_CHANGED: 'settings:changed',
   PLAYER_JUMP: 'player:jump',
+  PLAYER_AIR_JUMP: 'player:air-jump',
   PLAYER_WALL_JUMP: 'player:wall-jump',
   PLAYER_DASH: 'player:dash',
   PLAYER_LAND: 'player:land',

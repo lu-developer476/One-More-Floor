@@ -36,6 +36,24 @@ test.beforeEach(async ({ page }) => {
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Menu'));
 });
 
+test('real keyboard performs one repeatable air jump for five landing cycles', async ({ page }) => {
+  await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));
+  await page.waitForFunction(() => window.__OMF_E2E__?.run()?.countdownFinished);
+  for (let cycle = 0; cycle < 5; cycle += 1) {
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => window.__OMF_E2E__?.run()?.lastJumpKind === 'ground');
+    await page.keyboard.down('Space');
+    await page.keyboard.up('Space');
+    await page.waitForFunction(() => window.__OMF_E2E__?.run()?.lastJumpKind === 'air');
+    expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.velocityY ?? 0)).toBeLessThan(0);
+    const events = await page.evaluate(() => window.__OMF_E2E__?.run()?.jumpEvents ?? 0);
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(80);
+    expect(await page.evaluate(() => window.__OMF_E2E__?.run()?.jumpEvents ?? 0)).toBe(events);
+    await page.waitForFunction(() => window.__OMF_E2E__?.run()?.airJumpAvailable === true);
+  }
+});
+
 test('real keyboard composes jump and dash in both orders and simultaneously', async ({ page }) => {
   const start = async () => {
     await page.evaluate(() => window.__OMF_E2E__?.startFloor(0));

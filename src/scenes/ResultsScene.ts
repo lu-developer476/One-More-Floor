@@ -1,7 +1,8 @@
+import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
 import type { ResultData } from '../types/game';
 import { LEVELS } from '../config/levelConfig';
-import { StorageService } from '../services/StorageService';
+import { getNextFloor, StorageService } from '../services/StorageService';
 import { calculateRank, nextRankGap, seconds } from '../systems/Statistics';
 import { audioService } from '../services/AudioService';
 import { InputManager } from '../input/InputManager';
@@ -15,6 +16,7 @@ export class ResultsScene extends Phaser.Scene {
     super('Results');
   }
   create(data: ResultData): void {
+    new ScreenShell(this, 'RESULTADOS', 'Navegación accesible · foco visible · volver siempre disponible');
     const level = LEVELS[data.levelIndex];
     if (!level) throw new Error('Invalid result level');
     const rank = calculateRank(level, data.elapsedMs, data.deaths);
@@ -70,6 +72,7 @@ export class ResultsScene extends Phaser.Scene {
             ? 'TEÓRICO --'
             : `TEÓRICO ${seconds(outcome.bestTheoreticalMs)} s`,
           data.final ? `TOTAL ${seconds(data.totalElapsedMs)} s` : '',
+          outcome.floorUnlocked ? `PISO ${getNextFloor(data.floor)} DESBLOQUEADO` : '',
         ].filter(Boolean),
         {
           fontFamily: 'monospace',
@@ -84,7 +87,7 @@ export class ResultsScene extends Phaser.Scene {
       .text(
         480,
         440,
-        `${formatPrompt(InputAction.CONFIRM, this.manager.activeDevice, bindings)} ${data.final ? 'MENÚ' : 'SIGUIENTE PISO'} · ${formatPrompt(InputAction.RESTART, this.manager.activeDevice, bindings)} REPETIR · ${formatPrompt(InputAction.BACK, this.manager.activeDevice, bindings)} MENÚ`,
+        `${formatPrompt(InputAction.CONFIRM, this.manager.activeDevice, bindings)} ${data.floor === 2 && outcome.floorUnlocked ? 'IR AL PISO 3' : data.final ? 'MENÚ' : 'IR AL SIGUIENTE PISO'}\n${formatPrompt(InputAction.RESTART, this.manager.activeDevice, bindings)} REPETIR   ${formatPrompt(InputAction.BACK, this.manager.activeDevice, bindings)} VOLVER AL MENÚ`,
         {
           fontFamily: 'monospace',
           fontSize: '18px',
