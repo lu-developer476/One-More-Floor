@@ -17,7 +17,11 @@ export type Effect =
   | 'complete'
   | 'menuMove'
   | 'menuConfirm'
-  | 'door';
+  | 'door'
+  | 'enemyPatrol'
+  | 'enemyAlert'
+  | 'enemyCharge'
+  | 'enemyDisabled';
 
 const tones: Record<Effect, number> = {
   jump: 440,
@@ -37,6 +41,10 @@ const tones: Record<Effect, number> = {
   menuMove: 300,
   menuConfirm: 480,
   door: 190,
+  enemyPatrol: 145,
+  enemyAlert: 820,
+  enemyCharge: 310,
+  enemyDisabled: 980,
 };
 
 class ProceduralAudioService {

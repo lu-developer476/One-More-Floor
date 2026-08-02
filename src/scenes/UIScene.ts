@@ -2,6 +2,7 @@ import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
 import { eventBus, Events } from '../utils/EventBus';
 import type { HudData } from '../types/game';
+import { ToastController } from '../ui/Toast';
 
 export class UIScene extends Phaser.Scene {
   private title!: Phaser.GameObjects.Text;
@@ -11,6 +12,7 @@ export class UIScene extends Phaser.Scene {
   private jump!: Phaser.GameObjects.Text;
   private bar!: Phaser.GameObjects.Rectangle;
   private splits!: Phaser.GameObjects.Text;
+  private toast!: ToastController;
   constructor() {
     super('UI');
   }
@@ -27,7 +29,9 @@ export class UIScene extends Phaser.Scene {
     this.jump = this.add.text(42, 502, 'SALTO EXTRA  ●', style);
     this.bar = this.add.rectangle(480, 525, 0, 4, 0x5ef1ff).setOrigin(0, 0.5);
     this.splits = this.add.text(920, 430, '', { ...style, fontSize: '16px', align: 'right' }).setOrigin(1, 0);
+    this.toast = new ToastController(this);
     eventBus.on(Events.HUD, this.onHud, this);
+    eventBus.on(Events.TOAST, this.onToast, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
   }
   private onHud(data: HudData): void {
@@ -55,7 +59,10 @@ export class UIScene extends Phaser.Scene {
     ]);
     this.bar.setDisplaySize(930 * Phaser.Math.Clamp(data.progress, 0, 1), 4).setPosition(15, 525);
   }
+  private onToast(message: string): void { this.toast.show(message, 'success', 1800); }
   private shutdown(): void {
     eventBus.off(Events.HUD, this.onHud, this);
+    eventBus.off(Events.TOAST, this.onToast, this);
+    this.toast.destroy();
   }
 }

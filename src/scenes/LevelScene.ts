@@ -20,6 +20,7 @@ import { LocalAnalyticsService } from '../analytics/LocalAnalyticsService';
 import { SplitFeedback } from '../ui/SplitFeedback';
 import { calculateBestTheoretical } from '../systems/SplitComparisons';
 import { createFloorRunData, initialAnchor } from '../runs/RunContext';
+import { EnemySystem } from '../enemies/EnemySystem';
 
 const DEATH_FADE_MS = 260;
 const DEATH_RESTART_MS = 480;
@@ -31,6 +32,7 @@ export class LevelScene extends Phaser.Scene {
   private built!: BuiltLevel;
   private collapse!: CollapseSystem;
   private environment!: EnvironmentSystem;
+  private enemies!: EnemySystem;
   private debugText?: Phaser.GameObjects.Text;
   private dead = false;
   private complete = false;
@@ -82,6 +84,7 @@ export class LevelScene extends Phaser.Scene {
       airJumpAvailable: this.player?.airJumpAvailable ?? false,
       lastJumpKind: this.player?.jumpKind ?? null,
       dashEvents: this.dashEvents,
+      enemies: this.enemies?.debug() ?? [],
     };
   }
 
@@ -128,6 +131,18 @@ export class LevelScene extends Phaser.Scene {
       this.level.practiceAnchors.find((item) => item.id === this.context.anchorId) ??
       this.level.practiceAnchors[0]!;
     this.player = new Player(this, anchor.x, anchor.y, this.inputManager);
+    const enemyDefinitions = this.context.mode === 'practice'
+      ? this.level.enemies.filter((enemy) => enemy.x >= anchor.x - 120)
+      : this.level.enemies;
+    this.enemies = new EnemySystem(
+      this,
+      enemyDefinitions,
+      this.player,
+      settings,
+      this.built.platforms,
+      (sourceId) => this.die({ cause: 'enemy', sourceId }),
+      (enemy) => { this.analytics.enemyDisabled(this.levelIndex, enemy.definition.id); eventBus.emit(Events.TOAST, enemy.definition.kind === 'maintenance-bot' ? 'AUTÓMATA DESACTIVADO' : 'DRON DESACTIVADO'); },
+    );
     const record = save.floors[String(this.level.floor)];
     this.bestTimeMs = record?.bestTimeMs ?? null;
     this.session = new AttemptSession(
@@ -170,6 +185,7 @@ export class LevelScene extends Phaser.Scene {
       this.session.start();
       this.physics.world.resume();
       this.player.unlock();
+      this.enemies.resume();
     });
     if (import.meta.env.VITE_E2E) {
       this.events.on('e2e:kill', this.die, this);
@@ -236,6 +252,7 @@ export class LevelScene extends Phaser.Scene {
       return;
     }
     this.gameplayTimeMs += safeDelta;
+    this.enemies.update(this.gameplayTimeMs, safeDelta);
     this.player.update();
     this.session.update(safeDelta, {
       x: this.player.x,
@@ -302,6 +319,7 @@ export class LevelScene extends Phaser.Scene {
   ): void {
     if (this.dead || this.complete) return;
     this.dead = true;
+    this.enemies.pause();
     this.closure = 'died';
     this.session.recordDeath(details.cause, details.sourceId);
     this.analytics.death(this.levelIndex, details.cause, details.sourceId);
@@ -446,6 +464,7 @@ export class LevelScene extends Phaser.Scene {
   private applySettings(settings: Settings): void {
     this.saveSnapshot.settings = { ...settings };
     audioService.apply(settings);
+    this.enemies?.applySettings(settings);
     if (settings.highContrast) this.player.setTint(0xffffff);
     else this.player.clearTint();
     const record = this.saveSnapshot.floors[String(this.level.floor)];
@@ -505,6 +524,8 @@ export class LevelScene extends Phaser.Scene {
       `DASH duration=${MOVEMENT.dashDurationMs} speed=${MOVEMENT.dashSpeed} remaining=${this.player.dashRemainingMs.toFixed(0)}`,
       `GROUND ${body.blocked.down || body.touching.down} WALL ${wall} COYOTE ${this.player.coyoteRemainingMs.toFixed(0)}`,
       `DASHING ${this.player.isDashing} AVAILABLE ${this.player.dashAvailable} STATE ${this.player.states.state}`,
+      `ENEMIES ${this.enemies.count} ACTIVE ${this.enemies.activeCount} DISABLED ${this.enemies.count - this.enemies.activeCount}`,
+      ...this.enemies.debug().slice(0, 3).map((enemy) => `${enemy.id} ${enemy.state} ${enemy.x.toFixed(0)},${enemy.y.toFixed(0)} dir=${enemy.direction} t=${enemy.stateRemainingMs.toFixed(0)}`),
     ]);
   }
 
@@ -512,6 +533,7 @@ export class LevelScene extends Phaser.Scene {
     this.inputManager.destroy();
     this.countdown?.destroy();
     this.ghost?.destroy();
+    this.enemies?.destroy();
     this.events.off(Events.PLAYER_DASH, this.dashTrail, this);
     this.events.off(Events.PLAYER_LAND, this.onLand, this);
     this.events.off(Events.PLAYER_WALL_JUMP, this.onWallJump, this);

@@ -74,6 +74,8 @@ export function installE2EHarness(game: Phaser.Game): void {
       const key = String(floor);
       const old = save.floors[key];
       save.floors[key] = {
+        rulesetVersion: old?.rulesetVersion ?? LEVELS[floor - 1]?.rulesetVersion ?? 1,
+        previousRuleset: old?.previousRuleset ?? null,
         completed: old?.completed ?? true,
         bestTimeMs: old?.bestTimeMs ?? ghost.durationMs,
         fewestDeaths: old?.fewestDeaths ?? 0,

@@ -1,3 +1,20 @@
+## 1.2.0
+
+### Added
+
+- Autómatas de mantenimiento y drones centinela.
+- IA determinista, desactivación mediante dash, telegraphs accesibles, analytics local y records por ruleset.
+
+### Changed
+
+- Los pisos 2–5 incorporan encuentros móviles.
+- Ayuda y selección de pisos informan amenazas; Tower Run utiliza el nuevo ruleset.
+
+### Fixed
+
+- Los records antiguos ya no se comparan silenciosamente contra niveles modificados.
+- Los enemigos se congelan correctamente en pausa y los contactos de dash se resuelven de forma atómica.
+
 ## 1.1.2
 
 - Estabilización de aceptación: categorías de Ajustes, tabs de Controles, foco compartido y resultados accionables.

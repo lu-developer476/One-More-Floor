@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { createEnemyTextures } from '../enemies/EnemyTextures';
 
 type DrawTexture = (graphics: Phaser.GameObjects.Graphics) => void;
 type PlayerPose =
@@ -12,6 +13,7 @@ export class BootScene extends Phaser.Scene {
   create(): void {
     this.createWorldTextures();
     this.createPlayerTextures();
+    createEnemyTextures(this);
     this.createAnimations();
     this.scene.start('Menu');
   }

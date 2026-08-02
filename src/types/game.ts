@@ -91,6 +91,8 @@ export interface LevelDefinition {
   accentColor: number;
   backgroundColor: number;
   spawn: Point;
+  rulesetVersion: number;
+  enemies: readonly import('../enemies/EnemyTypes').EnemyDefinition[];
   practiceAnchors: readonly PracticeAnchor[];
   exit: Point & { id: string; label: string };
   splits: readonly SplitDefinition[];
