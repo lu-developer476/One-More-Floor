@@ -7,7 +7,7 @@ import { EnvironmentSystem } from '../systems/EnvironmentSystem';
 import { eventBus, Events } from '../utils/EventBus';
 import type { LevelDefinition, LevelSceneData } from '../types/game';
 import { MOVEMENT } from '../config/movementConfig';
-import { StorageService, type Settings } from '../services/StorageService';
+import { StorageService, type SaveData, type Settings } from '../services/StorageService';
 import { TOTAL_FLOORS } from '../config/levelConfig';
 import { audioService } from '../services/AudioService';
 import { RunCountdown } from '../systems/RunCountdown';
@@ -54,6 +54,7 @@ export class LevelScene extends Phaser.Scene {
   private closure: 'active' | 'died' | 'restarted' | 'completed' | 'abandoned' = 'active';
   private jumpEvents = 0;
   private dashEvents = 0;
+  private saveSnapshot!: SaveData;
 
   constructor() {
     super('Level');
@@ -118,6 +119,7 @@ export class LevelScene extends Phaser.Scene {
     this.environment = new EnvironmentSystem(this, this.level);
     this.built = new LevelFactory(this).build(this.level);
     const save = new StorageService().load();
+    this.saveSnapshot = save;
     const settings = save.settings;
     this.inputManager = new InputManager(this, save.input);
     this.inputManager.blockInherited();
@@ -216,7 +218,7 @@ export class LevelScene extends Phaser.Scene {
     const reference = this.bestRunSplits[id];
     this.lastDeltaMs = reference === undefined ? null : result.cumulativeMs - reference;
     this.analytics.split(this.levelIndex, id, result.segmentMs);
-    const settings = new StorageService().load().settings;
+    const settings = this.saveSnapshot.settings;
     this.feedback.show(result, this.lastDeltaMs, settings.reduceFlashes);
     return result;
   }
@@ -309,7 +311,7 @@ export class LevelScene extends Phaser.Scene {
     audioService.play('death', 300);
     this.collapse.stop();
     this.environment.burstSparks(this.player.x, this.player.y, 20);
-    const settings = new StorageService().load().settings;
+    const settings = this.saveSnapshot.settings;
     if (settings.screenShake) this.cameras.main.shake(110, settings.reducedShake ? 0.002 : 0.005);
     if (!settings.reduceFlashes) this.cameras.main.flash(70, 255, 60, 80);
     this.time.delayedCall(80, () => this.cameras.main.fadeOut(DEATH_FADE_MS));
@@ -409,7 +411,7 @@ export class LevelScene extends Phaser.Scene {
     this.environment.burstSmoke(x, y + 18, kind === 'hard' ? 9 : 4);
     audioService.play('land');
     if (kind === 'hard') {
-      const settings = new StorageService().load().settings;
+      const settings = this.saveSnapshot.settings;
       if (settings.screenShake) this.cameras.main.shake(70, settings.reducedShake ? 0.001 : 0.0025);
     }
   }
@@ -424,7 +426,7 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private onAirJump(x: number, y: number): void {
-    const settings = new StorageService().load().settings;
+    const settings = this.saveSnapshot.settings;
     audioService.play('airJump');
     if (settings.particleIntensity !== 'off')
       this.environment.burstSmoke(x, y + 12, settings.particleIntensity === 'reduced' ? 3 : 7);
@@ -442,10 +444,11 @@ export class LevelScene extends Phaser.Scene {
   }
 
   private applySettings(settings: Settings): void {
+    this.saveSnapshot.settings = { ...settings };
     audioService.apply(settings);
     if (settings.highContrast) this.player.setTint(0xffffff);
     else this.player.clearTint();
-    const record = new StorageService().load().floors[String(this.level.floor)];
+    const record = this.saveSnapshot.floors[String(this.level.floor)];
     if (!settings.showGhost) {
       this.ghost?.destroy();
       this.ghost = undefined;

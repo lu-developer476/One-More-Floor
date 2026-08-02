@@ -55,6 +55,7 @@ export interface E2EHarness {
   getFocusedAction: () => number;
   getMenuActions: () => readonly string[];
   getUiAudit: (scene: string) => UiAuditSnapshot | null;
+  openScene: (scene: 'Settings' | 'Controls' | 'FloorSelect') => void;
 }
 
 export function installE2EHarness(game: Phaser.Game): void {
@@ -162,6 +163,7 @@ export function installE2EHarness(game: Phaser.Game): void {
     getFocusedAction: () => (game.scene.getScene('Menu') as MenuScene).getSelection(),
     getMenuActions: () => (game.scene.getScene('Menu') as MenuScene).getActions(),
     getUiAudit: (scene) => readUiAudit(scene),
+    openScene: (scene) => game.scene.start(scene),
   };
 }
 

@@ -59,8 +59,12 @@ export interface CompletionPolicy {
   ghost: boolean;
 }
 export interface CompletionOutcome extends RecordFloorResult {
-  progressSaved: boolean;
-  floorUnlocked: boolean;
+  persisted: boolean;
+  progressEligible: boolean;
+  progressChanged: boolean;
+  previousUnlockedFloor: number;
+  currentUnlockedFloor: number;
+  newlyUnlockedFloor: number | null;
   improvedSegments: readonly string[];
   bestTheoreticalMs: number | null;
 }
@@ -137,7 +141,7 @@ export class StorageService {
     const current = this.parse(this.storage.getItem(KEY));
     if (current) {
       const repaired = validate(current);
-      this.save(repaired);
+      if (JSON.stringify(current) !== JSON.stringify(repaired)) this.save(repaired);
       return repaired;
     }
     for (const key of OLD_KEYS) {
@@ -148,9 +152,13 @@ export class StorageService {
         return migrated;
       }
     }
-    const legacy = migrateLegacy(this.parse(this.storage.getItem(LEGACY_KEY)));
-    this.save(legacy);
-    return legacy;
+    const legacySource = this.parse(this.storage.getItem(LEGACY_KEY));
+    if (legacySource) {
+      const legacy = migrateLegacy(legacySource);
+      this.save(legacy);
+      return legacy;
+    }
+    return defaults();
   }
   save(data: SaveData): boolean {
     try {
@@ -195,8 +203,12 @@ export class StorageService {
     const key = String(Math.floor(floor));
     const unchanged: CompletionOutcome = {
       save: data,
-      progressSaved: false,
-      floorUnlocked: false,
+      persisted: false,
+      progressEligible: policy.progress,
+      progressChanged: false,
+      previousUnlockedFloor: data.unlockedFloor,
+      currentUnlockedFloor: data.unlockedFloor,
+      newlyUnlockedFloor: null,
       newBestTime: false,
       ghostSaved: false,
       rankImproved: false,
@@ -239,12 +251,17 @@ export class StorageService {
     };
     const previousUnlocked = data.unlockedFloor;
     if (policy.progress) unlockAfterCompletion(data, floor);
-    this.save(data);
+    const progressChanged = policy.progress && (!old?.completed || data.unlockedFloor !== previousUnlocked);
+    const persisted = this.save(data);
     const level = LEVELS[floor - 1];
     return {
       save: data,
-      progressSaved: policy.progress,
-      floorUnlocked: data.unlockedFloor > previousUnlocked,
+      persisted,
+      progressEligible: policy.progress,
+      progressChanged,
+      previousUnlockedFloor: previousUnlocked,
+      currentUnlockedFloor: data.unlockedFloor,
+      newlyUnlockedFloor: data.unlockedFloor > previousUnlocked ? data.unlockedFloor : null,
       newBestTime,
       ghostSaved,
       rankImproved,

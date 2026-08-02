@@ -1,111 +1,19 @@
-import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
 import type { ResultData } from '../types/game';
 import { LEVELS } from '../config/levelConfig';
-import { getNextFloor, StorageService } from '../services/StorageService';
-import { calculateRank, nextRankGap, seconds } from '../systems/Statistics';
-import { audioService } from '../services/AudioService';
+import { StorageService, type CompletionOutcome } from '../services/StorageService';
+import { calculateRank, seconds } from '../systems/Statistics';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
-import { formatPrompt } from '../input/InputPromptFormatter';
 import { createFloorRunData } from '../runs/RunContext';
+import { ScreenShell, UiFocusController, UiTypography, type UiButtonHandle } from '../ui/UiKit';
+import { ToastController } from '../ui/Toast';
+type ResultAction='next'|'retry'|'floors'|'menu';
 export class ResultsScene extends Phaser.Scene {
-  private manager?: InputManager;
-  private resultData?: ResultData;
-  constructor() {
-    super('Results');
-  }
-  create(data: ResultData): void {
-    new ScreenShell(this, 'RESULTADOS', 'Navegación accesible · foco visible · volver siempre disponible');
-    const level = LEVELS[data.levelIndex];
-    if (!level) throw new Error('Invalid result level');
-    const rank = calculateRank(level, data.elapsedMs, data.deaths);
-    const service = new StorageService();
-    const outcome = service.completeFloor(
-      data.floor,
-      data.elapsedMs,
-      data.deaths,
-      rank,
-      data.splits,
-      data.segments,
-      data.eligibility,
-      data.ghostRun,
-    );
-    const best = (outcome?.save ?? service.load()).floors[String(data.floor)];
-    this.manager = new InputManager(this, service.load().input);
-    this.manager.blockInherited();
-    this.resultData = data;
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.manager?.destroy());
-    this.cameras.main.setBackgroundColor('#0c1119');
-    const heading = this.add
-      .text(480, 82, data.final ? 'EVACUACIÓN COMPLETA' : 'PISO COMPLETADO', {
-        fontFamily: 'monospace',
-        fontSize: '42px',
-        color: '#5ef1ff',
-        fontStyle: 'bold',
-      })
-      .setOrigin(0.5);
-    if (outcome?.newBestTime) {
-      heading.setText('NUEVO RÉCORD');
-      this.tweens.add({ targets: heading, scale: 1.08, duration: 420, yoyo: true, repeat: 2 });
-      audioService.play('record', 0);
-    }
-    const bindings = service.load().input;
-    this.add
-      .text(
-        480,
-        220,
-        [
-          `RANGO  ${rank}  ·  MEJOR ${best?.rank ?? rank}`,
-          level.name,
-          `TIEMPO ${seconds(data.elapsedMs)} s  ·  MEJOR ${seconds(best?.bestTimeMs ?? data.elapsedMs)} s`,
-          `SPLITS ${Object.keys(data.splits).length}/${level.splits.length} · SEGMENTOS MEJORADOS ${outcome.improvedSegments.length}`,
-          `MUERTES ${data.deaths}  ·  MEJOR ${best?.fewestDeaths ?? data.deaths}`,
-          nextRankGap(level, rank, data.elapsedMs, data.deaths),
-          data.eligibility.status,
-          outcome?.ghostSaved
-            ? 'FANTASMA NUEVO GUARDADO'
-            : data.eligibility.ghost
-              ? 'FANTASMA SIN CAMBIOS'
-              : 'RESULTADO NO COMPETITIVO',
-          outcome.bestTheoreticalMs === null
-            ? 'TEÓRICO --'
-            : `TEÓRICO ${seconds(outcome.bestTheoreticalMs)} s`,
-          data.final ? `TOTAL ${seconds(data.totalElapsedMs)} s` : '',
-          outcome.floorUnlocked ? `PISO ${getNextFloor(data.floor)} DESBLOQUEADO` : '',
-        ].filter(Boolean),
-        {
-          fontFamily: 'monospace',
-          fontSize: '20px',
-          color: '#fff',
-          align: 'center',
-          lineSpacing: 9,
-        },
-      )
-      .setOrigin(0.5);
-    this.add
-      .text(
-        480,
-        440,
-        `${formatPrompt(InputAction.CONFIRM, this.manager.activeDevice, bindings)} ${data.floor === 2 && outcome.floorUnlocked ? 'IR AL PISO 3' : data.final ? 'MENÚ' : 'IR AL SIGUIENTE PISO'}\n${formatPrompt(InputAction.RESTART, this.manager.activeDevice, bindings)} REPETIR   ${formatPrompt(InputAction.BACK, this.manager.activeDevice, bindings)} VOLVER AL MENÚ`,
-        {
-          fontFamily: 'monospace',
-          fontSize: '18px',
-          color: '#f5c84c',
-        },
-      )
-      .setOrigin(0.5);
-  }
-  update(): void {
-    const data = this.resultData,
-      manager = this.manager;
-    if (!data || !manager) return;
-    manager.poll();
-    if (manager.wasPressed(InputAction.BACK)) this.scene.start('Menu');
-    else if (manager.wasPressed(InputAction.RESTART))
-      this.scene.start('Level', { ...data.context });
-    else if (manager.wasPressed(InputAction.CONFIRM))
-      if (data.final || data.mode !== 'competitive') this.scene.start('Menu');
-      else this.scene.start('Level', createFloorRunData(data.levelIndex + 1, 'competitive'));
-  }
+  private manager!:InputManager;private resultData!:ResultData;private outcome!:CompletionOutcome;private actions:UiButtonHandle[]=[];private selected=0;private focus!:UiFocusController;private toast!:ToastController;
+  constructor(){super('Results');}
+  create(data:ResultData):void{const shell=new ScreenShell(this,'RESULTADOS','Revisá tu tiempo y elegí qué hacer a continuación.');const level=LEVELS[data.levelIndex];if(!level)throw new Error('Invalid result level');this.resultData=data;const rank=calculateRank(level,data.elapsedMs,data.deaths);this.outcome=new StorageService().completeFloor(data.floor,data.elapsedMs,data.deaths,rank,data.splits,data.segments,data.eligibility,data.ghostRun);this.manager=new InputManager(this,this.outcome.save.input);this.manager.blockInherited();this.toast=new ToastController(this);const best=this.outcome.save.floors[String(data.floor)];shell.panel(40,112,420,172,'main-result');shell.panel(476,112,444,172,'progress');shell.panel(40,300,880,150,'actions');this.add.text(64,132,`RESULTADO PRINCIPAL\n\nTIEMPO  ${seconds(data.elapsedMs)} s\nRANGO   ${rank}\nPB      ${seconds(best?.bestTimeMs??data.elapsedMs)} s\nDELTA   ${this.outcome.newBestTime?'NUEVO PB':'SIN CAMBIOS'}`,UiTypography(16));this.add.text(500,132,`PROGRESO\n\nSPLITS  ${Object.keys(data.splits).length}/${level.splits.length}\nSEGMENTOS MEJORADOS  ${this.outcome.improvedSegments.length}\nMEJOR TEÓRICO  ${this.outcome.bestTheoreticalMs?`${seconds(this.outcome.bestTheoreticalMs)} s`:'--'}\nFANTASMA  ${this.outcome.ghostSaved?'GUARDADO':'SIN CAMBIOS'}\nPISO DESBLOQUEADO  ${this.outcome.newlyUnlockedFloor??'--'}`,UiTypography(16));const definitions:{id:ResultAction;label:string}[]=[];const next=LEVELS.find(candidate=>candidate.floor===data.floor+1);if(next&&!data.final&&data.mode==='competitive')definitions.push({id:'next',label:`IR A ${next.name}`});definitions.push({id:'retry',label:'REPETIR'},{id:'floors',label:'VOLVER A PISOS'},{id:'menu',label:'MENÚ'});this.actions=definitions.map((action,i)=>shell.button(`result-${action.id}`,action.label,64+(i%2)*420,316+Math.floor(i/2)*58,396,()=>this.activate(action.id),{primary:i===0,parent:'actions'}));this.focus=new UiFocusController(shell,this.actions);if(!this.outcome.persisted)this.toast.show('EL PROGRESO CAMBIÓ, PERO NO PUDO GUARDARSE','warning',5000);this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{this.focus.destroy();this.toast.destroy();this.manager.destroy();});}
+  update():void{this.manager.poll();if(this.manager.wasPressed(InputAction.MENU_UP)||this.manager.wasPressed(InputAction.MENU_LEFT)){this.selected=(this.selected+this.actions.length-1)%this.actions.length;this.paint();}if(this.manager.wasPressed(InputAction.MENU_DOWN)||this.manager.wasPressed(InputAction.MENU_RIGHT)){this.selected=(this.selected+1)%this.actions.length;this.paint();}if(this.manager.wasPressed(InputAction.CONFIRM))this.actions[this.selected]?.bg.emit('pointerdown');if(this.manager.wasPressed(InputAction.RESTART))this.activate('retry');if(this.manager.wasPressed(InputAction.BACK))this.activate('floors');}
+  private paint():void{this.actions.forEach((x,i)=>x.setFocused(i===this.selected));}
+  private activate(action:ResultAction):void{if(action==='retry')this.scene.start('Level',{...this.resultData.context});else if(action==='floors')this.scene.start('FloorSelect');else if(action==='menu')this.scene.start('Menu');else{const next=LEVELS.find(level=>level.floor===this.resultData.floor+1);if(next)this.scene.start('Level',createFloorRunData(LEVELS.indexOf(next),'competitive'));}}
 }

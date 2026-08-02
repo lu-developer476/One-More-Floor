@@ -13,7 +13,7 @@ const airborne = (remaining = 1): JumpContext => ({
 });
 
 describe('repeatable double jump', () => {
-  it('uses the exact v1.1.1 movement and frozen dash tuning', () => {
+  it('uses the exact v1.1.2 movement and frozen dash tuning', () => {
     expect(MOVEMENT).toMatchObject({
       gravity: 1520, maxFallSpeed: 980, jumpSpeed: 680, maxAirJumps: 1,
       airJumpSpeed: 640, wallJumpX: 360, wallJumpY: 640, coyoteMs: 100,
