@@ -24,3 +24,9 @@ El entorno inicial fue Node 24.15.0 y npm 11.4.2, distinto del Node 22.12.0 fija
 ## Evidencia final
 
 Los resultados finales deben reemplazar o complementar esta sección únicamente después de ejecutar los comandos. Un test escrito es `NOT RUN` hasta que su proceso termine con código 0; la presencia de un spec nunca se informa como PASS. En este entorno la restricción HTTP 403 impidió restaurar dependencias y, por tanto, impide afirmar que la release fue aceptada localmente. CI deberá proporcionar la evidencia real antes del merge.
+
+### Corrección posterior de CI
+
+La primera ejecución del PR detectó dos defectos reales de la propuesta: un import de `MOVEMENT` quedó sin uso después de retirar la UI de debug, y `check:dist` confundía implementaciones internas de loaders/texturas de Phaser con contenido emitido por la aplicación. Se eliminó el import y el auditor ahora separa explícitamente el chunk vendor, cuya procedencia e integridad quedan fijadas por `package-lock.json`, de los chunks propios que siguen sujetos a la prohibición de contenido embebido y rutas locales.
+
+Después de la corrección, `verify:static` terminó con código 0: 2 tests de niveles y 125 tests unitarios pasaron; typecheck, lint, build y `check:dist` también pasaron. La colección E2E enumeró 32 tests válidos. Chromium no pudo descargarse localmente porque todos los endpoints de Playwright respondieron HTTP 403, por lo que no se presenta la suite de navegador local como aprobada; el job de GitHub instala Chromium efímeramente y sigue siendo la autoridad bloqueante.

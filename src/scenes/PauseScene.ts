@@ -106,6 +106,7 @@ export class PauseScene extends Phaser.Scene {
     }
   }
   private resume(): void {
+    announceStatus({ scene: 'Level', message: 'Partida reanudada.', priority: 'polite' });
     this.scene.stop();
     this.scene.resume('Level');
     audioService.resume();

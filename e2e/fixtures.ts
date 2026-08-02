@@ -13,7 +13,7 @@ export const STORAGE_KEYS = [
 export const test = base.extend<{ browserErrors: string[] }>({
   browserErrors: [
     async ({ page }, use) => {
-      const errors = installBrowserErrorCollector(page);
+      const errors = await installBrowserErrorCollector(page);
       const browserErrors: string[] = [];
       await use(browserErrors);
       expect([...browserErrors, ...errors.all()]).toEqual([]);

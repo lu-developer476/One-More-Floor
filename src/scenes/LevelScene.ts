@@ -6,7 +6,6 @@ import { CollapseSystem } from '../systems/CollapseSystem';
 import { EnvironmentSystem } from '../systems/EnvironmentSystem';
 import { announceStatus, eventBus, Events } from '../utils/EventBus';
 import type { LevelDefinition, LevelSceneData } from '../types/game';
-import { MOVEMENT } from '../config/movementConfig';
 import { StorageService, type SaveData, type Settings } from '../services/StorageService';
 import { TOTAL_FLOORS } from '../config/levelConfig';
 import { audioService } from '../services/AudioService';
@@ -86,6 +85,12 @@ export class LevelScene extends Phaser.Scene {
       enemies: this.enemies?.debug() ?? [],
       enemyBlockers: this.enemies?.blockerDebug() ?? null,
     };
+  }
+
+  positionPlayerForE2E(x: number, y: number): void {
+    if (!import.meta.env.VITE_E2E || !this.player) return;
+    this.player.setPosition(x, y);
+    this.player.setVelocity(0, 0);
   }
 
   init(data: LevelSceneData): void {

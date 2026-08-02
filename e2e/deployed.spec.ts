@@ -15,7 +15,7 @@ test('deployed release exposes an honest semantic gameplay smoke', async ({ page
     if (attempt < 5) await new Promise((resolve) => setTimeout(resolve, 15_000));
   }
   expect(manifest).toMatchObject(expectedRelease);
-  const errors = installBrowserErrorCollector(page);
+  const errors = await installBrowserErrorCollector(page);
   await page.addInitScript(() => localStorage.setItem('one-more-floor.onboarding', '1'));
   const response = await page.goto('/');
   expect(response?.ok()).toBe(true);
@@ -41,6 +41,7 @@ test('deployed release exposes an honest semantic gameplay smoke', async ({ page
   await page.keyboard.press('KeyP');
   await expect(status).toContainText('Juego en pausa');
   await page.keyboard.press('KeyP');
+  await expect(status).toContainText('Partida reanudada');
   await page.keyboard.press('KeyP');
   await expect(status).toContainText('Juego en pausa');
   await page.keyboard.press('ArrowUp');
