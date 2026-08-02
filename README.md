@@ -1,8 +1,8 @@
-# One More Floor v1.2.0
+# One More Floor v1.2.1
 
 Plataformas de precisión procedural en Phaser: cinco pisos, práctica, ghosts, splits y Tower Run competitiva o asistida. Todo el progreso permanece local; no se envía a un servidor.
 
-La versión 1.2.0 suma autómatas y drones deterministas, evitables y desactivables mediante dash en los pisos 2–5, práctica y Tower Run. No incorpora combate tradicional ni assets externos.
+La versión 1.2.1 estabiliza autómatas y drones deterministas, evitables y desactivables mediante dash en los pisos 2–5, práctica y Tower Run. No incorpora combate tradicional ni assets externos.
 
 ## Controles predeterminados
 

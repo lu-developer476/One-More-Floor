@@ -1,3 +1,15 @@
+## 1.2.1
+
+### Fixed
+
+- Sincronización Arcade, gravedad, límites y bloqueos de paredes y puertas para enemigos.
+- Línea de visión y activación por cámara justas; contacto atómico y estados congelados durante pausa y countdown.
+- Selección de práctica por segmentos, Tower Run ruleset 2, save v11 y backups versionados.
+
+### Accessibility
+
+- Siluetas de alto contraste y telegraphs de dron con línea, dirección, progreso y corte en el primer blocker.
+
 ## 1.2.0
 
 ### Added

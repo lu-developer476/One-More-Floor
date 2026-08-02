@@ -1,5 +1,7 @@
 import { expect, test as base } from '@playwright/test';
 export const STORAGE_KEYS = [
+  'one-more-floor.save.v11',
+  'one-more-floor.save.v10',
   'one-more-floor.save.v9',
   'one-more-floor.save.v8',
   'one-more-floor.save.v7',
