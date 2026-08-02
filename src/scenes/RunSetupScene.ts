@@ -6,12 +6,14 @@ import { InputAction } from '../input/InputAction';
 import { StorageService } from '../services/StorageService';
 import { createFloorRunData } from '../runs/RunContext';
 import { formatPrompt } from '../input/InputPromptFormatter';
+import type { InputSettings } from '../input/InputBindings';
 export class RunSetupScene extends Phaser.Scene {
   private floor = 0;
   private mode = 0;
   private anchor = 0;
   private inputManager!: InputManager;
   private text!: Phaser.GameObjects.Text;
+  private bindings!: InputSettings;
   constructor() {
     super('RunSetup');
   }
@@ -23,7 +25,8 @@ export class RunSetupScene extends Phaser.Scene {
   }
   create() {
     new ScreenShell(this, 'PREPARAR INTENTO', 'Navegación accesible · foco visible · volver siempre disponible');
-    this.inputManager = new InputManager(this, new StorageService().load().input);
+    this.bindings = new StorageService().load().input;
+    this.inputManager = new InputManager(this, this.bindings);
     this.inputManager.blockInherited();
     this.add.rectangle(480, 270, 760, 430, 0x071018, 0.98).setStrokeStyle(2, 0x5ef1ff);
     this.add
@@ -78,7 +81,7 @@ export class RunSetupScene extends Phaser.Scene {
       this.mode
         ? `ANCHOR: ${level.practiceAnchors[this.anchor]!.name}`
         : 'PB, RANGO Y GHOST HABILITADOS',
-      `${formatPrompt(InputAction.CONFIRM, this.inputManager.activeDevice, new StorageService().load().input)} CONFIRMAR · ${formatPrompt(InputAction.BACK, this.inputManager.activeDevice, new StorageService().load().input)} VOLVER`,
+      `${formatPrompt(InputAction.CONFIRM, this.inputManager.activeDevice, this.bindings)} CONFIRMAR · ${formatPrompt(InputAction.BACK, this.inputManager.activeDevice, this.bindings)} VOLVER`,
     ]);
   }
 }

@@ -1,4 +1,5 @@
 import { expect, test } from './fixtures';
+import { bootWithLegacySave } from './boot';
 
 const errors = (page: import('@playwright/test').Page) => {
   const messages: string[] = [];
@@ -18,7 +19,7 @@ const selectMenuAction = async (page: import('@playwright/test').Page, action: s
   await page.keyboard.press('Enter');
 };
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page }, testInfo) => {
   await page.addInitScript(() => {
     for (const key of [
       'one-more-floor.save.v9',
@@ -30,7 +31,11 @@ test.beforeEach(async ({ page }) => {
     ])
       localStorage.removeItem(key);
   });
-  await page.goto('/');
+  if (testInfo.title.includes('v8 layout')) await bootWithLegacySave(page, 8, {
+    version: 8, unlockedFloor: 4, floors: {}, settings: {},
+    input: { keyboard: { MOVE_LEFT: 'KeyA', MOVE_RIGHT: 'KeyD', DASH: 'ShiftLeft', PAUSE: 'Escape' } },
+  });
+  else await page.goto('/');
   expect(await page.title()).toBe('One More Floor');
   await expect(page.locator('canvas')).toBeVisible();
   await page.waitForFunction(() => window.__OMF_E2E__?.scene().includes('Menu'));
@@ -201,22 +206,6 @@ test('dash travels its longer real distance and holding S does not repeat it', a
 test('v8 layout migrates once, later remaps persist, and reset-controls keeps progress', async ({
   page,
 }) => {
-  await page.evaluate(() => {
-    localStorage.setItem(
-      'one-more-floor.save.v8',
-      JSON.stringify({
-        version: 8,
-        unlockedFloor: 4,
-        floors: {},
-        settings: {},
-        input: {
-          keyboard: { MOVE_LEFT: 'KeyA', MOVE_RIGHT: 'KeyD', DASH: 'ShiftLeft', PAUSE: 'Escape' },
-        },
-      }),
-    );
-  });
-  await page.reload();
-  await page.waitForFunction(() => Boolean(window.__OMF_E2E__));
   expect(await page.evaluate(() => window.__OMF_E2E__?.getBindings())).toMatchObject({
     keyboardLayoutVersion: 2,
     keyboard: {

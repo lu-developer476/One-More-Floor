@@ -17,7 +17,7 @@ jobs:
       - run: npm ci
       - run: npm run check:text-only
       - run: npm run check:version
-      - run: npm run check:ui
+      - run: npm run check:ui:static
       - run: npm run check:levels
       - run: npm run typecheck
       - run: npm run lint
@@ -35,3 +35,4 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - run: npm run test:e2e:smoke
+      - run: npm run check:ui:runtime

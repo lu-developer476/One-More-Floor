@@ -1,310 +1,66 @@
-import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
-import { StorageService, type Settings } from '../services/StorageService';
+import { ScreenShell, UiFocusController, UiTypography, type UiButtonHandle } from '../ui/UiKit';
+import { StorageService, type SaveData, type Settings } from '../services/StorageService';
 import { audioService } from '../services/AudioService';
 import { eventBus, Events } from '../utils/EventBus';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { LocalAnalyticsService } from '../analytics/LocalAnalyticsService';
+import { ToastController } from '../ui/Toast';
 
-const labels: readonly (
-  | keyof Settings
-  | 'controls'
-  | 'copyBackup'
-  | 'importBackup'
-  | 'reset'
-  | 'clearGhosts'
-  | 'clearRecords'
-  | 'clearAnalytics'
-  | 'resetProgress'
-  | 'back'
-)[] = [
-  'volume',
-  'mute',
-  'screenShake',
-  'reducedShake',
-  'reduceFlashes',
-  'highContrast',
-  'showGhost',
-  'localAnalyticsEnabled',
-  'particleIntensity',
-  'fullscreen',
-  'controls',
-  'copyBackup',
-  'importBackup',
-  'clearGhosts',
-  'clearRecords',
-  'clearAnalytics',
-  'resetProgress',
-  'reset',
-  'back',
+type SettingsCategory = 'audio' | 'accessibility' | 'gameplay' | 'controls' | 'local-data';
+const categories: readonly { id: SettingsCategory; label: string; description: string }[] = [
+  { id: 'audio', label: 'AUDIO', description: 'Ajustá volumen y silencio.' },
+  { id: 'accessibility', label: 'IMAGEN Y ACCESIBILIDAD', description: 'Reducí estímulos y mejorá la lectura.' },
+  { id: 'gameplay', label: 'JUGABILIDAD', description: 'Elegí ayudas visuales y estadísticas.' },
+  { id: 'controls', label: 'CONTROLES', description: 'Revisá y personalizá tus asignaciones.' },
+  { id: 'local-data', label: 'DATOS LOCALES', description: 'Administrá copias, récords y progreso.' },
 ];
-const names: Record<(typeof labels)[number], string> = {
-  volume: 'VOLUMEN',
-  mute: 'SILENCIO',
-  screenShake: 'SACUDIDA DE CÁMARA',
-  reducedShake: 'INTENSIDAD REDUCIDA',
-  reduceFlashes: 'REDUCIR FLASHES',
-  highContrast: 'ALTO CONTRASTE',
-  showGhost: 'MOSTRAR FANTASMA',
-  localAnalyticsEnabled: 'ESTADÍSTICAS LOCALES',
-  particleIntensity: 'INTENSIDAD DE PARTÍCULAS',
-  fullscreen: 'PANTALLA COMPLETA',
-  controls: 'PERSONALIZAR CONTROLES',
-  copyBackup: 'COPIAR COPIA DE SEGURIDAD',
-  importBackup: 'IMPORTAR DESDE PORTAPAPELES',
-  clearGhosts: 'BORRAR FANTASMAS',
-  clearRecords: 'BORRAR RÉCORDS',
-  clearAnalytics: 'BORRAR ESTADÍSTICAS LOCALES',
-  resetProgress: 'BORRAR TODO EL PROGRESO',
-  reset: 'RESTAURAR AJUSTES',
-  back: 'VOLVER',
-};
-
 export class SettingsScene extends Phaser.Scene {
-  private selected = 0;
-  private items: Phaser.GameObjects.Text[] = [];
-  private service = new StorageService();
-  private settings!: Settings;
-  private manager!: InputManager;
-  private dialog?: ConfirmDialog;
-  constructor() {
-    super('Settings');
-  }
-
+  private service = new StorageService(); private save!: SaveData; private manager!: InputManager;
+  private shell!: ScreenShell; private category: SettingsCategory = 'audio'; private categoryIndex = 0; private rowIndex = 0;
+  private categoryButtons: UiButtonHandle[] = []; private rowButtons: UiButtonHandle[] = []; private focus!: UiFocusController;
+  private content: Phaser.GameObjects.GameObject[] = []; private dialog?: ConfirmDialog; private toast!: ToastController;
+  constructor() { super('Settings'); }
   create(): void {
-    new ScreenShell(this, 'AJUSTES', 'Navegación accesible · foco visible · volver siempre disponible');
-    const save = this.service.load();
-    this.settings = save.settings;
-    this.manager = new InputManager(this, save.input);
-    this.manager.blockInherited();
-    this.add.rectangle(480, 270, 700, 500, 0x071018, 0.97).setStrokeStyle(2, 0x5ef1ff);
-    this.add
-      .text(480, 28, 'AJUSTES', { fontFamily: 'monospace', fontSize: '32px', color: '#5ef1ff' })
-      .setOrigin(0.5);
-    this.add.text(150, 92, 'AUDIO\n\nIMAGEN Y ACCESIBILIDAD\n\nJUGABILIDAD\n\nCONTROLES\n\nDATOS LOCALES', {
-      fontFamily: 'monospace', fontSize: '16px', color: '#d9e7ed', lineSpacing: 12,
-    });
-    this.add.rectangle(480, 455, 620, 58, 0x301018, 0.75).setStrokeStyle(2, 0xff405c);
-    this.add.text(480, 455, 'ZONA DE PELIGRO · BORRAR TODO EL PROGRESO', {
-      fontFamily: 'monospace', fontSize: '16px', color: '#ff8192',
-    }).setOrigin(0.5);
-    this.items = labels.map((_key, index) => {
-      const item = this.add
-        .text(620, 88 + index * 44, '', {
-          fontFamily: 'monospace',
-          fontSize: '16px',
-          color: '#91a6b6',
-        })
-        .setOrigin(0.5)
-        .setInteractive({ useHandCursor: true });
-      item.setVisible(index < 6);
-      item.on('pointerover', () => this.select(index));
-      item.on('pointerdown', () => this.change(1));
-      return item;
-    });
-    this.scale.on('enterfullscreen', this.syncFullscreen, this);
-    this.scale.on('leavefullscreen', this.syncFullscreen, this);
+    this.shell = new ScreenShell(this, 'AJUSTES', 'Personalizá audio, accesibilidad, controles y datos locales.');
+    this.save = this.service.load(); this.manager = new InputManager(this, this.save.input); this.manager.blockInherited(); this.toast = new ToastController(this);
+    this.shell.panel(40, 108, 270, 344, 'categories'); this.shell.panel(328, 108, 592, 344, 'settings-content');
+    this.categoryButtons = categories.map((item, index) => this.shell.button(`category-${item.id}`, item.label, 52, 120 + index * 58, 246, () => this.selectCategory(index), { parent: 'categories' }));
+    this.focus = new UiFocusController(this.shell, this.categoryButtons); this.renderCategory();
+    this.scale.on('enterfullscreen', this.syncFullscreen, this); this.scale.on('leavefullscreen', this.syncFullscreen, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
-    this.select(0);
   }
-
   update(): void {
-    this.manager.poll();
-    if (this.dialog) {
-      this.dialog.update(this.manager);
-      return;
-    }
-    if (this.manager.wasPressed(InputAction.MENU_UP)) this.previous();
-    if (this.manager.wasPressed(InputAction.MENU_DOWN)) this.next();
-    if (this.manager.wasPressed(InputAction.MENU_LEFT)) this.decrease();
-    if (
-      this.manager.wasPressed(InputAction.MENU_RIGHT) ||
-      this.manager.wasPressed(InputAction.CONFIRM)
-    )
-      this.increase();
+    this.manager.poll(); if (this.dialog) return this.dialog.update(this.manager);
+    if (this.manager.wasPressed(InputAction.MENU_LEFT)) this.selectCategory((this.categoryIndex + categories.length - 1) % categories.length);
+    if (this.manager.wasPressed(InputAction.MENU_RIGHT)) this.selectCategory((this.categoryIndex + 1) % categories.length);
+    if (this.manager.wasPressed(InputAction.MENU_UP)) { this.rowIndex = (this.rowIndex + this.rowButtons.length - 1) % this.rowButtons.length; this.paint(); }
+    if (this.manager.wasPressed(InputAction.MENU_DOWN)) { this.rowIndex = (this.rowIndex + 1) % this.rowButtons.length; this.paint(); }
+    if (this.manager.wasPressed(InputAction.CONFIRM)) this.rowButtons[this.rowIndex]?.bg.emit('pointerdown');
     if (this.manager.wasPressed(InputAction.BACK)) this.back();
   }
-
-  private previous(): void {
-    this.select((this.selected - 1 + labels.length) % labels.length);
+  private selectCategory(index: number): void { this.categoryIndex = index; this.category = categories[index]!.id; this.rowIndex = 0; this.renderCategory(); }
+  private clearContent(): void { this.rowButtons.forEach(item => item.destroy()); this.rowButtons = []; this.content.forEach(item => item.destroy()); this.content = []; }
+  private heading(text: string, y: number): void { this.content.push(this.add.text(350, y, text, UiTypography(16, '#5ef1ff', true))); }
+  private addButton(id: string, label: string, y: number, action: () => void, destructive = false): void { this.rowButtons.push(this.shell.button(id, label, 350, y, 548, action, { parent: 'settings-content', destructive })); }
+  private renderCategory(): void {
+    this.clearContent(); const definition = categories[this.categoryIndex]!; this.heading(definition.label, 124); this.content.push(this.add.text(350, 150, definition.description, UiTypography(16, '#91a6b6')));
+    let y = 184; const toggle = (key: keyof Settings, label: string) => { this.addButton(String(key), `${label}                                      ${this.save.settings[key] ? 'SÍ' : 'NO'}`, y, () => { (this.save.settings[key] as boolean) = !this.save.settings[key]; this.persist(); }); y += 50; };
+    if (this.category === 'audio') { this.addButton('volume', `VOLUMEN  ${'■'.repeat(Math.round(this.save.settings.volume * 10))}${'·'.repeat(10 - Math.round(this.save.settings.volume * 10))}  ${Math.round(this.save.settings.volume * 100)}%`, y, () => { this.save.settings.volume = (Math.round(this.save.settings.volume * 10) + 1) % 11 / 10; this.persist(); }); y += 50; toggle('mute', 'SILENCIO'); }
+    else if (this.category === 'accessibility') { toggle('screenShake', 'SACUDIDA DE CÁMARA'); toggle('reducedShake', 'INTENSIDAD REDUCIDA'); toggle('reduceFlashes', 'REDUCIR FLASHES'); toggle('highContrast', 'ALTO CONTRASTE'); this.addButton('particles', `PARTÍCULAS                                      ${this.save.settings.particleIntensity === 'normal' ? 'NORMAL' : this.save.settings.particleIntensity === 'reduced' ? 'REDUCIDA' : 'DESACTIVADA'}`, y, () => { const values = ['normal','reduced','off'] as const; this.save.settings.particleIntensity = values[(values.indexOf(this.save.settings.particleIntensity)+1)%3]!; this.persist(); }); y += 50; toggle('fullscreen', 'PANTALLA COMPLETA'); }
+    else if (this.category === 'gameplay') { toggle('showGhost', 'MOSTRAR FANTASMA'); toggle('localAnalyticsEnabled', 'ESTADÍSTICAS LOCALES'); this.addButton('restore-settings', 'RESTAURAR AJUSTES', y, () => this.restoreSettings()); this.content.push(this.add.text(350, y + 47, 'Restaura audio, imagen y jugabilidad. No borra progreso ni controles.', { ...UiTypography(16, '#91a6b6'), wordWrap: { width: 540 } })); }
+    else if (this.category === 'controls') { this.content.push(this.add.text(350, 190, `Saltar: ${this.save.input.keyboard.JUMP}  ·  Dash: ${this.save.input.keyboard.DASH}\nPausa: ${this.save.input.keyboard.PAUSE}`, UiTypography(16))); this.addButton('customize-controls', 'PERSONALIZAR CONTROLES', 270, () => { this.scene.pause(); this.scene.launch('Controls'); }); }
+    else { this.heading('COPIA DE SEGURIDAD', 184); this.addButton('backup', 'COPIAR COPIA DE SEGURIDAD', 210, () => void this.copyBackup()); this.heading('LIMPIEZA SELECTIVA', 266); this.addButton('clear-ghosts', 'BORRAR FANTASMAS', 292, () => this.confirmClear('BORRAR FANTASMAS', () => this.service.clearGhosts())); this.addButton('clear-records', 'BORRAR RÉCORDS', 342, () => this.confirmClear('BORRAR RÉCORDS', () => this.service.clearRecords())); this.heading('ZONA DE PELIGRO', 398); this.addButton('reset-progress', 'BORRAR TODO EL PROGRESO', 424, () => this.confirmClear('BORRAR TODOS LOS DATOS', () => { this.save = this.service.resetProgress(); new LocalAnalyticsService().clear(); }), true); }
+    this.paint();
   }
-  private next(): void {
-    this.select((this.selected + 1) % labels.length);
-  }
-  private decrease(): void {
-    this.change(-1);
-  }
-  private increase(): void {
-    this.change(1);
-  }
-  private select(index: number): void {
-    this.selected = index;
-    this.render();
-    audioService.play('menuMove');
-  }
-  private value(key: (typeof labels)[number]): string {
-    if (
-      key === 'controls' ||
-      key === 'copyBackup' ||
-      key === 'importBackup' ||
-      key === 'reset' ||
-      key === 'clearGhosts' ||
-      key === 'clearRecords' ||
-      key === 'clearAnalytics' ||
-      key === 'resetProgress' ||
-      key === 'back'
-    )
-      return '';
-    if (key === 'volume') return `${Math.round(this.settings.volume * 100)}%`;
-    if (key === 'particleIntensity')
-      return { normal: 'NORMAL', reduced: 'REDUCIDA', off: 'DESACTIVADA' }[
-        this.settings.particleIntensity
-      ];
-    return this.settings[key] ? 'SÍ' : 'NO';
-  }
-  private render(): void {
-    this.items.forEach((item, index) => {
-      const key = labels[index]!;
-      const scrollStart = Phaser.Math.Clamp(this.selected - 2, 0, labels.length - 6);
-      item
-        .setVisible(index >= scrollStart && index < scrollStart + 6)
-        .setY(104 + (index - scrollStart) * 52)
-        .setText(
-          `${index === this.selected ? '▶ ' : '  '}${names[key]}${this.value(key) ? `: ${this.value(key)}` : ''}`,
-        )
-        .setColor(index === this.selected ? '#ffffff' : '#91a6b6');
-    });
-  }
-  private change(direction: number): void {
-    const key = labels[this.selected]!;
-    if (key === 'back') return this.back();
-    if (key === 'controls') {
-      this.scene.pause();
-      this.scene.launch('Controls');
-      return;
-    }
-    if (key === 'copyBackup') {
-      void this.copyBackup();
-      return;
-    }
-    if (key === 'importBackup') {
-      this.confirmImport();
-      return;
-    }
-    if (
-      key === 'clearGhosts' ||
-      key === 'clearRecords' ||
-      key === 'clearAnalytics' ||
-      key === 'resetProgress'
-    ) {
-      this.dialog = new ConfirmDialog(
-        this,
-        'CONFIRMAR',
-        names[key],
-        () => {
-          this.dialog = undefined;
-          if (key === 'clearGhosts') this.service.clearGhosts();
-          else if (key === 'clearRecords') this.service.clearRecords();
-          else if (key === 'clearAnalytics') new LocalAnalyticsService().clear();
-          else {
-            this.service.resetProgress();
-            this.settings = this.service.load().settings;
-          }
-          this.persist();
-        },
-        () => {
-          this.dialog = undefined;
-        },
-      );
-      return;
-    }
-    if (key === 'reset')
-      this.settings = new StorageService({
-        getItem: () => null,
-        setItem: () => undefined,
-      }).load().settings;
-    else if (key === 'volume')
-      this.settings.volume = Phaser.Math.Clamp(
-        Math.round((this.settings.volume + direction * 0.1) * 10) / 10,
-        0,
-        1,
-      );
-    else if (key === 'particleIntensity') {
-      const values: Settings['particleIntensity'][] = ['normal', 'reduced', 'off'];
-      const at = values.indexOf(this.settings.particleIntensity);
-      this.settings.particleIntensity = values[(at + direction + values.length) % values.length]!;
-    } else if (key === 'fullscreen') {
-      if (this.scale.isFullscreen) this.scale.stopFullscreen();
-      else this.scale.startFullscreen();
-      return;
-    } else this.settings[key] = !this.settings[key];
-    this.persist();
-  }
-  private async copyBackup(): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(this.service.exportBackup());
-      this.showMessage('COPIA GUARDADA EN PORTAPAPELES');
-    } catch {
-      this.showMessage('PORTAPAPELES NO DISPONIBLE');
-    }
-  }
-  private confirmImport(): void {
-    this.dialog = new ConfirmDialog(
-      this,
-      'IMPORTAR DATOS',
-      'Una copia válida reemplazará los datos locales.',
-      () => {
-        this.dialog = undefined;
-        void this.importBackup();
-      },
-      () => {
-        this.dialog = undefined;
-      },
-    );
-  }
-  private async importBackup(): Promise<void> {
-    try {
-      const result = this.service.importBackup(await navigator.clipboard.readText());
-      this.showMessage(result.ok ? 'COPIA IMPORTADA' : (result.error ?? 'IMPORTACIÓN RECHAZADA'));
-      if (result.ok) {
-        const save = this.service.load();
-        this.settings = save.settings;
-        this.manager.setSettings(save.input);
-        this.render();
-      }
-    } catch {
-      this.showMessage('PORTAPAPELES NO DISPONIBLE');
-    }
-  }
-  private showMessage(message: string): void {
-    const text = this.add
-      .text(480, 515, message, { fontFamily: 'monospace', fontSize: '16px', color: '#f5c84c' })
-      .setOrigin(0.5);
-    this.time.delayedCall(2500, () => text.destroy());
-  }
-  private persist(): void {
-    const save = this.service.load();
-    save.settings = { ...this.settings };
-    this.service.save(save);
-    audioService.apply(this.settings);
-    audioService.play('menuConfirm');
-    eventBus.emit(Events.SETTINGS_CHANGED, this.settings);
-    this.render();
-  }
-  private syncFullscreen(): void {
-    this.settings.fullscreen = this.scale.isFullscreen;
-    this.persist();
-  }
-  private back(): void {
-    this.scene.stop();
-    if (this.scene.isPaused('Pause')) this.scene.resume('Pause');
-    else if (!this.scene.isActive('Menu')) this.scene.start('Menu');
-  }
-  private shutdown(): void {
-    this.manager.destroy();
-    this.scale.off('enterfullscreen', this.syncFullscreen, this);
-    this.scale.off('leavefullscreen', this.syncFullscreen, this);
-  }
+  private paint(): void { this.categoryButtons.forEach((button, index) => button.setFocused(index === this.categoryIndex)); this.rowButtons.forEach((button, index) => button.setFocused(index === this.rowIndex)); const focused = this.rowButtons[this.rowIndex] ?? this.categoryButtons[this.categoryIndex]; if (focused) this.shell.focus(focused.id); }
+  private persist(): void { const ok = this.service.save(this.save); audioService.apply(this.save.settings); eventBus.emit(Events.SETTINGS_CHANGED, this.save.settings); if (!ok) this.toast.show('NO SE PUDIERON GUARDAR LOS CAMBIOS', 'warning'); this.renderCategory(); }
+  private restoreSettings(): void { const defaults = new StorageService({ getItem: () => null, setItem: () => undefined }).load().settings; this.save.settings = defaults; this.persist(); this.toast.show('AJUSTES RESTAURADOS', 'success'); }
+  private confirmClear(title: string, action: () => void): void { this.dialog = new ConfirmDialog(this, title, 'Esta acción modifica los datos guardados en este dispositivo.', () => { this.dialog = undefined; action(); this.save = this.service.load(); this.renderCategory(); }, () => { this.dialog = undefined; }, { danger: true, confirmLabel: 'BORRAR', consequences: 'No se puede deshacer.' }); }
+  private async copyBackup(): Promise<void> { try { await navigator.clipboard.writeText(this.service.exportBackup()); this.toast.show('COPIA GUARDADA', 'success'); } catch { this.toast.show('PORTAPAPELES NO DISPONIBLE', 'error'); } }
+  private syncFullscreen(): void { this.save.settings.fullscreen = this.scale.isFullscreen; this.persist(); }
+  private back(): void { this.scene.stop(); if (this.scene.isPaused('Pause')) this.scene.resume('Pause'); else if (!this.scene.isActive('Menu')) this.scene.start('Menu'); }
+  private shutdown(): void { this.dialog?.destroy(); this.toast.destroy(); this.focus.destroy(); this.manager.destroy(); this.scale.off('enterfullscreen', this.syncFullscreen, this); this.scale.off('leavefullscreen', this.syncFullscreen, this); }
 }

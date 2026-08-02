@@ -1,3 +1,9 @@
+## 1.1.2
+
+- Estabilización de aceptación: categorías de Ajustes, tabs de Controles, foco compartido y resultados accionables.
+- Persistencia veraz, lecturas sin escrituras redundantes y migración E2E previa al arranque.
+- Auditoría UI estática y runtime con Chromium.
+
 ## 1.1.1
 
 - Doble salto real y repetible con feedback procedural y HUD accesible.

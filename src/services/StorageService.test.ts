@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { StorageService } from './StorageService';
 class MemoryStorage {
   values = new Map<string, string>();
+  writes = 0;
   getItem(key: string) {
     return this.values.get(key) ?? null;
   }
   setItem(key: string, value: string) {
+    this.writes += 1;
     this.values.set(key, value);
   }
 }
@@ -103,6 +105,24 @@ describe('StorageService', () => {
     expect(new StorageService(store).load().unlockedFloor).toBe(1);
     store.values.set('one-more-floor.save.v3', '{');
     expect(new StorageService(store).load().version).toBe(9);
+  });
+  it('does not write during a valid read and writes completion exactly once', () => {
+    const store = new MemoryStorage();
+    const service = new StorageService(store);
+    const save = service.load();
+    expect(store.writes).toBe(0);
+    service.save(save);
+    const afterSeed = store.writes;
+    service.load();
+    expect(store.writes).toBe(afterSeed);
+    const outcome = service.recordFloor(1, 1000, 0, 'S');
+    expect(store.writes).toBe(afterSeed + 1);
+    expect(outcome).toMatchObject({ persisted: true, progressEligible: true, progressChanged: true, previousUnlockedFloor: 1, currentUnlockedFloor: 2, newlyUnlockedFloor: 2 });
+  });
+  it('reports an in-memory progress change when persistence fails', () => {
+    const store = { getItem: () => null, setItem: () => { throw new Error('quota'); } };
+    const outcome = new StorageService(store).recordFloor(1, 1000, 0, 'S');
+    expect(outcome).toMatchObject({ persisted: false, progressChanged: true, currentUnlockedFloor: 2 });
   });
   it('clamps and rejects corrupt fields without losing valid settings', () => {
     const store = new MemoryStorage();

@@ -1,93 +1,17 @@
-import { ScreenShell } from '../ui/UiKit';
 import Phaser from 'phaser';
 import { LEVELS } from '../config/levelConfig';
-import { isFloorUnlocked, StorageService } from '../services/StorageService';
+import { isFloorUnlocked, StorageService, type SaveData } from '../services/StorageService';
 import { InputManager } from '../input/InputManager';
 import { InputAction } from '../input/InputAction';
 import { createFloorRunData } from '../runs/RunContext';
 import { calculateBestTheoretical } from '../systems/SplitComparisons';
+import { formatPrompt } from '../input/InputPromptFormatter';
+import { ScreenShell, UiFocusController, UiTypography, type UiButtonHandle } from '../ui/UiKit';
 export class FloorSelectScene extends Phaser.Scene {
-  private practice = false;
-  private selected = 0;
-  private manager!: InputManager;
-  private items: Phaser.GameObjects.Text[] = [];
-  private detail!: Phaser.GameObjects.Text;
-  constructor() {
-    super('FloorSelect');
-  }
-  init(data: { practice?: boolean }) {
-    this.practice = data.practice === true;
-  }
-  create(): void {
-    new ScreenShell(this, 'PISOS', 'Navegación accesible · foco visible · volver siempre disponible');
-    const save = new StorageService().load();
-    this.manager = new InputManager(this, save.input);
-    this.manager.blockInherited();
-    this.cameras.main.setBackgroundColor('#071018');
-    this.add
-      .text(480, 45, this.practice ? 'PRÁCTICA' : 'PISOS', {
-        fontFamily: 'monospace',
-        fontSize: '36px',
-        color: '#5ef1ff',
-      })
-      .setOrigin(0.5);
-    this.items = LEVELS.map((level, i) =>
-      this.add
-        .text(
-          85,
-          105 + i * 58,
-          `${isFloorUnlocked(save, level.floor) ? '' : '🔒 '}PISO ${level.floor} · ${level.name}`,
-          { fontFamily: 'monospace', fontSize: '16px', color: '#91a6b6' },
-        )
-        .setInteractive()
-        .on('pointerover', () => this.select(i))
-        .on('pointerdown', () => this.confirm()),
-    );
-    this.detail = this.add.text(520, 115, '', {
-      fontFamily: 'monospace',
-      fontSize: '17px',
-      color: '#fff',
-      lineSpacing: 8,
-    });
-    this.add
-      .text(480, 500, 'CONFIRMAR · ELEGIR    VOLVER · MENÚ', {
-        fontFamily: 'monospace',
-        fontSize: '16px',
-        color: '#f5c84c',
-      })
-      .setOrigin(0.5);
-    this.select(0);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.manager.destroy());
-  }
-  update(): void {
-    this.manager.poll();
-    if (this.manager.wasPressed(InputAction.MENU_UP))
-      this.select((this.selected + LEVELS.length - 1) % LEVELS.length);
-    if (this.manager.wasPressed(InputAction.MENU_DOWN))
-      this.select((this.selected + 1) % LEVELS.length);
-    if (this.manager.wasPressed(InputAction.BACK)) this.scene.start('Menu');
-    if (this.manager.wasPressed(InputAction.CONFIRM)) this.confirm();
-  }
-  private select(i: number): void {
-    this.selected = i;
-    const save = new StorageService().load(),
-      level = LEVELS[i]!,
-      record = save.floors[String(level.floor)],
-      theory = calculateBestTheoretical(level, record?.bestSegments ?? {});
-    this.items.forEach((x, n) => x.setColor(n === i ? '#fff' : '#91a6b6'));
-    this.detail.setText([
-      `PISO ${level.floor}`,
-      isFloorUnlocked(save, level.floor) ? 'DESBLOQUEADO · CONFIRMAR PARA INICIAR' : 'BLOQUEADO · COMPLETÁ EL PISO ANTERIOR',
-      `PB ${record?.bestTimeMs ? `${(record.bestTimeMs / 1000).toFixed(2)} s` : '--'}`,
-      `RANGO ${record?.rank ?? '--'}`,
-      `GHOST ${record?.bestGhost ? 'SÍ' : 'NO'}`,
-      `MEJOR TEÓRICO ${theory ? `${(theory / 1000).toFixed(2)} s` : '--'}`,
-    ]);
-  }
-  private confirm(): void {
-    const save = new StorageService().load();
-    if (!isFloorUnlocked(save, LEVELS[this.selected]!.floor)) return;
-    if (this.practice) this.scene.start('RunSetup', { levelIndex: this.selected });
-    else this.scene.start('Level', createFloorRunData(this.selected));
-  }
+  private practice=false; private selected=0; private manager!:InputManager; private save!:SaveData; private shell!:ScreenShell; private cards:UiButtonHandle[]=[]; private detail!:Phaser.GameObjects.Text; private cta!:UiButtonHandle; private focus!:UiFocusController;
+  constructor(){super('FloorSelect');} init(data:{practice?:boolean}){this.practice=data.practice===true;}
+  create():void{this.shell=new ScreenShell(this,this.practice?'PRÁCTICA':'PISOS','Elegí un piso desbloqueado para comenzar.');this.save=new StorageService().load();this.manager=new InputManager(this,this.save.input);this.manager.blockInherited();this.shell.panel(40,108,400,332,'floor-list');this.shell.panel(456,108,464,332,'floor-detail');this.cards=LEVELS.map((level,i)=>{const record=this.save.floors[String(level.floor)];const unlocked=isFloorUnlocked(this.save,level.floor);return this.shell.button(`floor-${level.floor}`,`PISO ${level.floor} · ${level.name}   ${unlocked?'DISPONIBLE':'BLOQUEADO'}   ${record?.rank??'--'}   PB ${record?.bestTimeMs?`${(record.bestTimeMs/1000).toFixed(2)} s`:'--'}`,52,120+i*58,376,()=>{this.select(i);this.confirm();},{disabled:!unlocked,parent:'floor-list'});});this.detail=this.add.text(480,132,'',{...UiTypography(16),wordWrap:{width:410},lineSpacing:8});this.cta=this.shell.button('start-floor','COMENZAR',480,378,416,()=>this.confirm(),{primary:true,parent:'floor-detail'});this.focus=new UiFocusController(this.shell,this.cards.filter((_,i)=>isFloorUnlocked(this.save,LEVELS[i]!.floor)));this.select(0);this.shell.footer(`${formatPrompt(InputAction.CONFIRM,this.manager.activeDevice,this.save.input)} Elegir   ${formatPrompt(InputAction.BACK,this.manager.activeDevice,this.save.input)} Volver`);this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{this.focus.destroy();this.manager.destroy();});}
+  update():void{this.manager.poll();if(this.manager.wasPressed(InputAction.MENU_UP))this.select((this.selected+LEVELS.length-1)%LEVELS.length);if(this.manager.wasPressed(InputAction.MENU_DOWN))this.select((this.selected+1)%LEVELS.length);if(this.manager.wasPressed(InputAction.BACK))this.scene.start('Menu');if(this.manager.wasPressed(InputAction.CONFIRM))this.confirm();}
+  private select(i:number):void{this.selected=i;const level=LEVELS[i]!,record=this.save.floors[String(level.floor)],unlocked=isFloorUnlocked(this.save,level.floor),theory=calculateBestTheoretical(level,record?.bestSegments??{});this.cards.forEach((x,n)=>x.setFocused(n===i));this.cta.setEnabled(unlocked);this.cta.setFocused(unlocked);this.shell.focus(unlocked?'start-floor':`floor-${level.floor}`);const reason=i>0?`Completá ${LEVELS[i-1]!.name[0]}${LEVELS[i-1]!.name.slice(1).toLowerCase()} para desbloquearlo`:'Disponible desde el inicio';this.detail.setText([`PISO ${level.floor} · ${level.name}`,unlocked?'DISPONIBLE':'BLOQUEADO',unlocked?'Listo para comenzar.':reason,`PB: ${record?.bestTimeMs?`${(record.bestTimeMs/1000).toFixed(2)} s`:'--'}`,`MEJOR TEÓRICO: ${theory?`${(theory/1000).toFixed(2)} s`:'--'}`,`RANGO: ${record?.rank??'--'}`,`FANTASMA: ${record?.bestGhost?'DISPONIBLE':'--'}`]);}
+  private confirm():void{const level=LEVELS[this.selected]!;if(!isFloorUnlocked(this.save,level.floor))return;if(this.practice)this.scene.start('RunSetup',{levelIndex:this.selected});else this.scene.start('Level',createFloorRunData(this.selected));}
 }
