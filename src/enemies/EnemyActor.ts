@@ -8,6 +8,7 @@ export abstract class EnemyActor {
   protected paused = true;
   protected destroyed = false;
   protected visibleToCamera = false;
+  private highContrast = false;
   private disableTween: Phaser.Tweens.Tween | null = null;
   constructor(protected readonly scene: Phaser.Scene, readonly definition: EnemyDefinition, texture: string) {
     this.outline = scene.add.graphics().setDepth(19).setVisible(false);
@@ -16,9 +17,16 @@ export abstract class EnemyActor {
   }
   abstract update(gameplayTimeMs: number, deltaMs: number, playerX: number, playerY: number): void;
   abstract debug(): EnemyDebugState;
-  setCameraActive(value: boolean): void { this.visibleToCamera = value; if (!value) this.sprite.setVelocity(0); }
+  get active(): boolean { return !this.disabled && !this.destroyed; }
+  get cameraActive(): boolean { return this.visibleToCamera && !this.destroyed; }
+  get contactDangerous(): boolean { return this.active && this.cameraActive && !this.paused; }
+  get attacking(): boolean { return false; }
+  get canBeDisabled(): boolean { return this.active && this.cameraActive && !this.paused; }
+  onCameraSleep(): void { if (!this.visibleToCamera) return; this.visibleToCamera = false; this.sprite.setVelocity(0); this.outline.setVisible(false); }
+  onCameraWake(): void { if (this.destroyed || this.visibleToCamera) return; this.visibleToCamera = true; this.outline.setVisible(this.highContrast); this.drawOutline(); }
+  setCameraActive(value: boolean): void { if (value) this.onCameraWake(); else this.onCameraSleep(); }
   setPaused(value: boolean): void { this.paused = value; if (value) this.sprite.setVelocity(0); }
-  setHighContrast(value: boolean): void { this.outline.setVisible(value && !this.destroyed); this.drawOutline(); }
+  setHighContrast(value: boolean): void { this.highContrast = value; this.outline.setVisible(value && !this.destroyed && this.visibleToCamera); this.drawOutline(); }
   protected drawOutline(shape: 'bot' | 'drone' = this.definition.kind === 'maintenance-bot' ? 'bot' : 'drone'): void {
     this.outline.clear(); if (!this.outline.visible) return;
     const color = this.disabled ? 0xffffff : 0x000000;

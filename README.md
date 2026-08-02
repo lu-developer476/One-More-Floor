@@ -1,8 +1,8 @@
-# One More Floor v1.2.1
+# One More Floor v1.2.2
 
 Plataformas de precisión procedural en Phaser: cinco pisos, práctica, ghosts, splits y Tower Run competitiva o asistida. Todo el progreso permanece local; no se envía a un servidor.
 
-La versión 1.2.1 estabiliza autómatas y drones deterministas, evitables y desactivables mediante dash en los pisos 2–5, práctica y Tower Run. No incorpora combate tradicional ni assets externos.
+La versión 1.2.2 explicita el peligro de contacto, centraliza los efectos de desactivación y hace seguros pausa, countdown, cámara y destrucción. No incorpora contenido ni cambia el ruleset.
 
 ## Controles predeterminados
 
@@ -13,7 +13,7 @@ La versión 1.2.1 estabiliza autómatas y drones deterministas, evitables y desa
 - Reinicio: `KeyR`
 - Menús: flechas, `Enter` para confirmar y `Escape` para volver
 
-Los controles y prompts de gamepad pueden remapearse desde Ajustes. El hotfix 1.0.1 eleva el salto (`jumpSpeed` 620, `wallJumpY` 590 y `jumpCutMultiplier` 0.60) sin cambiar la gravedad 1520. Salto y dash ahora se combinan: el salto resuelve el eje vertical mientras el dash conserva ese arco y resuelve el horizontal.
+Los controles y prompts de gamepad pueden remapearse desde Ajustes. El salto estable conserva `jumpSpeed` 680, `airJumpSpeed` 640, `wallJumpY` 640 y `jumpCutMultiplier` 0.68, con gravedad 1520. Salto y dash se combinan: el salto resuelve el eje vertical mientras el dash conserva ese arco y resuelve el horizontal.
 
 El dash estable mantiene velocidad 675, duración 220 ms, cooldown 230 ms y multiplicador final 0.58. La pestaña del navegador muestra el título limpio **One More Floor**.
 

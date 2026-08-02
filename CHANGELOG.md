@@ -1,3 +1,21 @@
+## 1.2.2
+
+### Fixed
+
+- La desactivación de drones ya no reproduce efectos duplicados.
+- Los estados enemigos poseen un contrato de peligro consistente.
+- Los enemigos dormidos o pausados no producen contacto mortal.
+- La destrucción de drones limpia siempre el actor completo.
+- Los blockers estáticos ya no se reconstruyen en cada frame.
+- Contacto, pausa, cámara y reinicio poseen cobertura real de navegador.
+
+### Testing
+
+- Aceptación E2E de autómatas y drones.
+- Rutas físicas de pisos 2–5.
+- Pruebas de paredes y puertas.
+- Validación diferenciada de build de producción y deploy.
+
 ## 1.2.1
 
 ### Fixed
