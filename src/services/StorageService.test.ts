@@ -16,7 +16,7 @@ describe('StorageService', () => {
     const store = new MemoryStorage();
     store.values.set('one-more-floor.save.v9', JSON.stringify({ version: 9, unlockedFloor: 3, floors: { '1': { completed: true, bestTimeMs: 25000, fewestDeaths: 0, rank: 'A' }, '2': { completed: true, bestTimeMs: 31000, fewestDeaths: 2, rank: 'B' } } }));
     const data = new StorageService(store).load();
-    expect(data.version).toBe(10);
+    expect(data.version).toBe(11);
     expect(data.unlockedFloor).toBe(3);
     expect(data.floors['1']?.bestTimeMs).toBe(25000);
     expect(data.floors['2']?.bestTimeMs).toBeNull();
@@ -53,7 +53,7 @@ describe('StorageService', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data).toMatchObject({ version: 10, unlockedFloor: 4, settings: { mute: true } });
+    expect(data).toMatchObject({ version: 11, unlockedFloor: 4, settings: { mute: true } });
     expect(data.input.keyboard).toMatchObject({
       MOVE_LEFT: 'ArrowLeft',
       MOVE_RIGHT: 'ArrowRight',
@@ -102,7 +102,7 @@ describe('StorageService', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.version).toBe(10);
+    expect(data.version).toBe(11);
     expect(data.unlockedFloor).toBe(3);
     expect(data.floors['1']?.bestTimeMs).toBe(900);
     expect(data.input.keyboard.JUMP).toBe('Space');
@@ -114,7 +114,7 @@ describe('StorageService', () => {
     const store = new MemoryStorage();
     expect(new StorageService(store).load().unlockedFloor).toBe(1);
     store.values.set('one-more-floor.save.v3', '{');
-    expect(new StorageService(store).load().version).toBe(10);
+    expect(new StorageService(store).load().version).toBe(11);
   });
   it('does not write during a valid read and writes completion exactly once', () => {
     const store = new MemoryStorage();
@@ -166,7 +166,7 @@ describe('StorageService', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.version).toBe(10);
+    expect(data.version).toBe(11);
     expect(data.settings.showGhost).toBe(true);
     expect(data.unlockedFloor).toBe(2);
     expect(data.settings.reduceFlashes).toBe(false);
@@ -229,7 +229,7 @@ describe('tower persistence v7', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.version).toBe(10);
+    expect(data.version).toBe(11);
     expect(data.unlockedFloor).toBe(4);
     expect(data.floors['1']?.bestTimeMs).toBe(1000);
     expect(data.tower.bestTimeMs).toBeNull();
@@ -308,8 +308,10 @@ describe('tower persistence v8 coherence', () => {
       }),
     );
     const tower = new StorageService(store).load().tower;
-    expect(tower.bestTimeMs).toBe(5000);
-    expect(tower.bestRank).toBe('A');
+    expect(tower.rulesetVersion).toBe(2);
+    expect(tower.bestTimeMs).toBeNull();
+    expect(tower.bestRank).toBeNull();
+    expect(tower.previousRuleset).toMatchObject({ bestTimeMs: 5000, bestRank: 'A' });
     expect(tower.bestIndividualFloorTimes).toEqual({ '1': 800 });
     expect(tower.bestRunCumulativeTimes).toEqual({});
   });

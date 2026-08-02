@@ -18,6 +18,8 @@ export interface FloorRecord {
   bestSegments: Record<string, number>;
 }
 export interface TowerRecord {
+  rulesetVersion: number;
+  previousRuleset: LegacyTowerSummary | null;
   completed: boolean;
   bestTimeMs: number | null;
   fewestDeaths: number | null;
@@ -27,6 +29,10 @@ export interface TowerRecord {
   bestRunDeaths: number | null;
   bestRunRank: Rank | null;
   bestIndividualFloorTimes: Record<string, number>;
+}
+export interface LegacyTowerSummary {
+  rulesetVersion: number; bestTimeMs: number | null; fewestDeaths: number | null; bestRank: Rank | null;
+  bestRunFloorTimes: Record<string, number>; bestRunCumulativeTimes: Record<string, number>;
 }
 export interface Settings {
   volume: number;
@@ -41,7 +47,7 @@ export interface Settings {
   particleIntensity: 'normal' | 'reduced' | 'off';
 }
 export interface SaveData {
-  version: 10;
+  version: 11;
   unlockedFloor: number;
   floors: Record<string, FloorRecord>;
   settings: Settings;
@@ -83,9 +89,13 @@ export interface TowerCompletionOutcome {
   improvedIndividualFloors: readonly number[];
 }
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
-export const SAVE_KEY = 'one-more-floor.save.v10';
+export const SAVE_SCHEMA_VERSION = 11;
+export const BACKUP_FORMAT_VERSION = 2;
+export const TOWER_RULESET_VERSION = 2;
+export const SAVE_KEY = 'one-more-floor.save.v11';
 const KEY = SAVE_KEY;
 const OLD_KEYS = [
+  'one-more-floor.save.v10',
   'one-more-floor.save.v9',
   'one-more-floor.save.v8',
   'one-more-floor.save.v7',
@@ -109,7 +119,7 @@ const defaultSettings = (): Settings => ({
   particleIntensity: 'normal',
 });
 const defaults = (): SaveData => ({
-  version: 10,
+  version: SAVE_SCHEMA_VERSION,
   unlockedFloor: 1,
   floors: {},
   settings: defaultSettings(),
@@ -117,6 +127,8 @@ const defaults = (): SaveData => ({
   tower: defaultTower(),
 });
 export const defaultTower = (): TowerRecord => ({
+  rulesetVersion: TOWER_RULESET_VERSION,
+  previousRuleset: null,
   completed: false,
   bestTimeMs: null,
   fewestDeaths: null,
@@ -305,7 +317,7 @@ export class StorageService {
     return data;
   }
   exportBackup(): string {
-    return JSON.stringify({ format: 'one-more-floor-backup', schema: 9, save: this.load() });
+    return JSON.stringify({ format: 'one-more-floor-backup', backupVersion: BACKUP_FORMAT_VERSION, saveVersion: SAVE_SCHEMA_VERSION, save: this.load() });
   }
   importBackup(text: string): { ok: boolean; error?: string } {
     try {
@@ -315,7 +327,7 @@ export class StorageService {
       const envelope = raw as Record<string, unknown>;
       if (
         envelope.format !== 'one-more-floor-backup' ||
-        envelope.schema !== 9 ||
+        !((envelope.backupVersion === BACKUP_FORMAT_VERSION && envelope.saveVersion === SAVE_SCHEMA_VERSION) || envelope.schema === 9) ||
         !envelope.save ||
         typeof envelope.save !== 'object' ||
         Array.isArray(envelope.save)
@@ -393,6 +405,8 @@ export class StorageService {
     const nextRank = betterRank(old.bestRank, rank);
     const rankImproved = nextRank !== old.bestRank;
     data.tower = {
+      rulesetVersion: TOWER_RULESET_VERSION,
+      previousRuleset: old.previousRuleset,
       completed: true,
       bestTimeMs: newBestTime ? time : old.bestTimeMs,
       fewestDeaths: old.fewestDeaths === null ? deaths : Math.min(old.fewestDeaths, deaths),
@@ -542,16 +556,24 @@ export const validateTower = (raw: unknown): TowerRecord => {
     return output;
   };
   const legacyIndividual = times(value.bestFloorTimes);
+  const sourceRuleset = finite(value.rulesetVersion, 1) ?? 1;
+  const previous = value.previousRuleset && typeof value.previousRuleset === 'object' ? value.previousRuleset as Record<string, unknown> : null;
+  const legacySummary = sourceRuleset < TOWER_RULESET_VERSION && (value.completed === true || finite(value.bestTimeMs, 1) !== null)
+    ? { rulesetVersion: sourceRuleset, bestTimeMs: finite(value.bestTimeMs, 1), fewestDeaths: finite(value.fewestDeaths, 0), bestRank: validRank(value.bestRank) ?? validRank(value.rank), bestRunFloorTimes: times(value.bestRunFloorTimes), bestRunCumulativeTimes: times(value.bestRunCumulativeTimes) }
+    : previous ? { rulesetVersion: finite(previous.rulesetVersion, 1) ?? 1, bestTimeMs: finite(previous.bestTimeMs, 1), fewestDeaths: finite(previous.fewestDeaths, 0), bestRank: validRank(previous.bestRank), bestRunFloorTimes: times(previous.bestRunFloorTimes), bestRunCumulativeTimes: times(previous.bestRunCumulativeTimes) } : null;
+  const current = sourceRuleset >= TOWER_RULESET_VERSION;
   return {
+    rulesetVersion: TOWER_RULESET_VERSION,
+    previousRuleset: legacySummary,
     completed: value.completed === true,
-    bestTimeMs: finite(value.bestTimeMs, 1),
-    fewestDeaths: finite(value.fewestDeaths, 0),
-    bestRank: validRank(value.bestRank) ?? validRank(value.rank),
-    bestRunFloorTimes: times(value.bestRunFloorTimes),
-    bestRunCumulativeTimes: times(value.bestRunCumulativeTimes),
-    bestRunDeaths: finite(value.bestRunDeaths, 0),
-    bestRunRank: validRank(value.bestRunRank),
-    bestIndividualFloorTimes: Object.keys(times(value.bestIndividualFloorTimes)).length
+    bestTimeMs: current ? finite(value.bestTimeMs, 1) : null,
+    fewestDeaths: current ? finite(value.fewestDeaths, 0) : null,
+    bestRank: current ? validRank(value.bestRank) ?? validRank(value.rank) : null,
+    bestRunFloorTimes: current ? times(value.bestRunFloorTimes) : {},
+    bestRunCumulativeTimes: current ? times(value.bestRunCumulativeTimes) : {},
+    bestRunDeaths: current ? finite(value.bestRunDeaths, 0) : null,
+    bestRunRank: current ? validRank(value.bestRunRank) : null,
+    bestIndividualFloorTimes: current && Object.keys(times(value.bestIndividualFloorTimes)).length
       ? times(value.bestIndividualFloorTimes)
       : legacyIndividual,
   };

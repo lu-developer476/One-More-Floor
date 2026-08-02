@@ -52,7 +52,7 @@ class ProceduralAudioService {
   private volume = 0.7;
   private muted = false;
   private paused = false;
-  private readonly lastPlayed = new Map<Effect, number>();
+  private readonly lastPlayed = new Map<string, number>();
 
   unlock(): void {
     this.context ??= new AudioContext();
@@ -71,16 +71,16 @@ class ProceduralAudioService {
     this.paused = false;
   }
 
-  play(effect: Effect, cooldownMs = 70): void {
+  play(effect: Effect, cooldownMs = 70, channel: string = effect): void {
     const nowMs = performance.now();
     if (
       !this.context ||
       this.muted ||
       this.paused ||
-      nowMs - (this.lastPlayed.get(effect) ?? 0) < cooldownMs
+      nowMs - (this.lastPlayed.get(channel) ?? 0) < cooldownMs
     )
       return;
-    this.lastPlayed.set(effect, nowMs);
+    this.lastPlayed.set(channel, nowMs);
     const oscillator = this.context.createOscillator();
     const gain = this.context.createGain();
     const now = this.context.currentTime;

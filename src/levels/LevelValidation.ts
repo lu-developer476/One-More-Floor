@@ -17,9 +17,10 @@ export const levelValidationErrors = (levels: readonly LevelDefinition[]): strin
       if (!enemy.id || enemyIds.has(enemy.id)) errors.push(`${path}.id: duplicate or empty`); enemyIds.add(enemy.id);
       if (distance(enemy, level.spawn) < 180) errors.push(`${path}: too close to spawn`);
       if (distance(enemy, level.exit) < 140) errors.push(`${path}: too close to exit`);
+      if (enemy.activationSplitId !== null && !level.splits.some(({ id }) => id === enemy.activationSplitId)) errors.push(`${path}.activationSplitId: unknown`);
       if (level.practiceAnchors.some((anchor) => anchor.id !== level.practiceAnchors[0]?.id && distance(enemy, anchor) < 120)) errors.push(`${path}: too close to practice anchor`);
       if (enemy.kind === 'maintenance-bot') { if (!(enemy.speed > 0) || !(enemy.patrolMinX < enemy.patrolMaxX) || enemy.x < enemy.patrolMinX || enemy.x > enemy.patrolMaxX) errors.push(`${path}: invalid maintenance-bot patrol`); }
-      else if (enemy.kind === 'security-drone') { if (![enemy.patrolRadiusX, enemy.patrolSpeed, enemy.alertMs, enemy.chargeMs, enemy.recoverMs, enemy.cooldownMs, enemy.chargeSpeed, enemy.detectionRangeX, enemy.detectionRangeY].every((value) => Number.isFinite(value) && value > 0)) errors.push(`${path}: invalid security-drone parameters`); }
+      else if (enemy.kind === 'security-drone') { if (enemy.alertMs < 400) errors.push(`${path}.alertMs: less than fair reaction window`); if (![enemy.patrolRadiusX, enemy.patrolSpeed, enemy.alertMs, enemy.chargeMs, enemy.recoverMs, enemy.cooldownMs, enemy.chargeSpeed, enemy.detectionRangeX, enemy.detectionRangeY].every((value) => Number.isFinite(value) && value > 0)) errors.push(`${path}: invalid security-drone parameters`); }
       else errors.push(`${path}.kind: unknown`);
     });
     const expected = [0, 1, 2, 2, 3][levelIndex]; if (level.enemies.length !== expected) errors.push(`${root}.enemies: expected ${expected}`);

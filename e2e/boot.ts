@@ -11,7 +11,7 @@ const install = async (page: Page, entry?: { key: string; save: unknown }) => {
 };
 export const bootWithLegacySave = async (page: Page, version: number, save: unknown) => {
   await install(page, { key: `one-more-floor.save.v${version}`, save });
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('one-more-floor.save.v9'))).not.toBeNull();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('one-more-floor.save.v11'))).not.toBeNull();
 };
-export const bootWithCurrentSave = (page: Page, save: unknown) => install(page, { key: 'one-more-floor.save.v9', save });
+export const bootWithCurrentSave = (page: Page, save: unknown) => install(page, { key: 'one-more-floor.save.v11', save });
 export const bootWithEmptySave = (page: Page) => install(page);

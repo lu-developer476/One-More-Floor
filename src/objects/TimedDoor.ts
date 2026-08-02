@@ -9,6 +9,10 @@ export class TimedDoor {
   private readonly indicator: Phaser.GameObjects.Graphics;
   private state: DoorTimerState = { phase: 'closed', remainingMs: 0 };
   private openVisual = 0;
+  private readonly obstructions = new Set<Phaser.GameObjects.GameObject & { getBounds(): Phaser.Geom.Rectangle }>();
+
+  get closed(): boolean { return this.state.phase === 'closed'; }
+  addObstruction(object: Phaser.GameObjects.GameObject & { getBounds(): Phaser.Geom.Rectangle }): void { this.obstructions.add(object); }
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -34,10 +38,11 @@ export class TimedDoor {
         this.definition.triggerX,
         this.definition.triggerY,
       ) <= this.definition.triggerRadius;
-    const obstructed = Phaser.Geom.Intersects.RectangleToRectangle(
+    const obstructedByPlayer = Phaser.Geom.Intersects.RectangleToRectangle(
       player.getBounds(),
       this.blocker.getBounds(),
     );
+    const obstructed = obstructedByPlayer || [...this.obstructions].some((object) => object.active && Phaser.Geom.Intersects.RectangleToRectangle(object.getBounds(), this.blocker.getBounds()));
     const previous = this.state.phase;
     this.state = updateDoorTimer(
       this.state,
@@ -74,6 +79,7 @@ export class TimedDoor {
   }
 
   destroy(): void {
+    this.obstructions.clear();
     this.blocker.destroy();
     this.trigger.destroy();
     this.indicator.destroy();

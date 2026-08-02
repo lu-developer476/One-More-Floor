@@ -131,15 +131,16 @@ export class LevelScene extends Phaser.Scene {
       this.level.practiceAnchors.find((item) => item.id === this.context.anchorId) ??
       this.level.practiceAnchors[0]!;
     this.player = new Player(this, anchor.x, anchor.y, this.inputManager);
+    const anchorSplitOrder = anchor.startingSplitId === null ? -1 : (this.level.splits.find((split) => split.id === anchor.startingSplitId)?.order ?? -1);
     const enemyDefinitions = this.context.mode === 'practice'
-      ? this.level.enemies.filter((enemy) => enemy.x >= anchor.x - 120)
+      ? this.level.enemies.filter((enemy) => enemy.activationSplitId === null || (this.level.splits.find((split) => split.id === enemy.activationSplitId)?.order ?? -1) >= anchorSplitOrder)
       : this.level.enemies;
     this.enemies = new EnemySystem(
       this,
       enemyDefinitions,
       this.player,
       settings,
-      this.built.platforms,
+      { staticPlatforms: this.built.platforms, timedDoors: this.built.timedDoors, worldBounds: new Phaser.Geom.Rectangle(0, 0, this.level.width, this.level.height) },
       (sourceId) => this.die({ cause: 'enemy', sourceId }),
       (enemy) => { this.analytics.enemyDisabled(this.levelIndex, enemy.definition.id); eventBus.emit(Events.TOAST, enemy.definition.kind === 'maintenance-bot' ? 'AUTÓMATA DESACTIVADO' : 'DRON DESACTIVADO'); },
     );
