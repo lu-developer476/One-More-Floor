@@ -1,7 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../config/levelConfig';
 import { resolveEnemyContact } from './EnemyContact';
-import type { EnemyActor } from './EnemyActor';
 
 describe('deterministic enemy definitions', () => {
   it('uses the expected rulesets and fixed encounter counts', () => {
@@ -15,8 +14,14 @@ describe('deterministic enemy definitions', () => {
   });
 });
 describe('atomic enemy contact authority', () => {
-  const actor = (disabled = false) => ({ disabled, sprite: { active: true }, disable: vi.fn(function(this: { disabled: boolean }) { if (this.disabled) return false; this.disabled = true; return true; }) }) as unknown as EnemyActor;
-  it('kills without dash and never disables', () => { const enemy = actor(); expect(resolveEnemyContact(enemy, false)).toBe('player-killed'); expect(enemy.disable).not.toHaveBeenCalled(); });
-  it('disables during dash once, then ignores repeated overlap', () => { const enemy = actor(); expect(resolveEnemyContact(enemy, true)).toBe('enemy-disabled'); expect(resolveEnemyContact(enemy, true)).toBe('ignored'); expect(enemy.disable).toHaveBeenCalledTimes(1); });
-  it('ignores inactive or previously disabled actors', () => { const enemy = actor(true); expect(resolveEnemyContact(enemy, false)).toBe('ignored'); });
+  const input = (changes = {}) => ({ contactDangerous: true, canBeDisabled: true, dashActive: false, playerAlive: true, ...changes });
+  it('kills dangerous contact without dash', () => expect(resolveEnemyContact(input())).toBe('player-killed'));
+  it('prioritizes a real dash when disabling is allowed', () => expect(resolveEnemyContact(input({ dashActive: true }))).toBe('enemy-disabled'));
+  it('ignores dead players, disabled actors, camera sleep, pause, and countdown', () => {
+    expect(resolveEnemyContact(input({ playerAlive: false }))).toBe('ignored');
+    for (const suspended of ['disabled', 'camera', 'pause', 'countdown']) {
+      expect(resolveEnemyContact(input({ contactDangerous: false, canBeDisabled: false })), suspended).toBe('ignored');
+    }
+  });
+  it('does not let dash disable an explicitly non-disableable actor', () => expect(resolveEnemyContact(input({ dashActive: true, canBeDisabled: false }))).toBe('player-killed'));
 });

@@ -1,15 +1,14 @@
 import Phaser from 'phaser';
-import { audioService } from '../services/AudioService';
 import { EnemyActor } from './EnemyActor';
 import { distanceToFirstBlocker, hasEnemyLineOfSight } from './EnemyLineOfSight';
-import type { DroneEnemyDefinition, DroneState, EnemyBlocker, EnemyDebugState } from './EnemyTypes';
+import type { DroneEnemyDefinition, DroneState, EnemyBlocker, EnemyDebugState, EnemyEffectSink } from './EnemyTypes';
 
 export class SecurityDrone extends EnemyActor {
   state: DroneState = 'patrol'; private direction: -1 | 1 = 1; private stateRemainingMs = 0;
   private cooldownMs = 0; private detected = false; private lineOfSight = false; private patrolPhaseMs = 0;
   private blockers: readonly EnemyBlocker[] = []; private attackLaneY: number;
   readonly telegraph: Phaser.GameObjects.Graphics;
-  constructor(scene: Phaser.Scene, readonly drone: DroneEnemyDefinition) {
+  constructor(scene: Phaser.Scene, readonly drone: DroneEnemyDefinition, private readonly effects: EnemyEffectSink) {
     super(scene, drone, 'security-drone-patrol-0'); this.attackLaneY = drone.y;
     (this.sprite.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
     this.sprite.setCollideWorldBounds(true).setBodySize(38, 24).setOffset(7, 10);
@@ -33,13 +32,13 @@ export class SecurityDrone extends EnemyActor {
       if (this.detected) {
         this.direction = playerX < this.sprite.x ? -1 : 1; this.attackLaneY = this.sprite.y;
         this.state = 'alert'; this.stateRemainingMs = this.drone.alertMs; this.sprite.setVelocity(0).setTexture('security-drone-alert');
-        audioService.play('enemyAlert', 300, `enemy-alert:${this.drone.id}`);
+        this.effects.alert(this.drone.id);
       }
     } else {
       this.stateRemainingMs = Math.max(0, this.stateRemainingMs - dt);
       if (this.state === 'alert') {
         this.sprite.setVelocity(0); this.drawTelegraph();
-        if (this.stateRemainingMs === 0) { this.state = 'charge'; this.stateRemainingMs = this.drone.chargeMs; this.telegraph.setVisible(false); this.sprite.setTexture('security-drone-charge').setVelocity(this.direction * this.drone.chargeSpeed, 0); audioService.play('enemyCharge', 300, `enemy-charge:${this.drone.id}`); }
+        if (this.stateRemainingMs === 0) { this.state = 'charge'; this.stateRemainingMs = this.drone.chargeMs; this.telegraph.setVisible(false); this.sprite.setTexture('security-drone-charge').setVelocity(this.direction * this.drone.chargeSpeed, 0); this.effects.charge(this.drone.id); }
       } else if (this.state === 'charge') {
         this.sprite.setVelocity(this.direction * this.drone.chargeSpeed, (this.attackLaneY - this.sprite.y) * 14);
         if (body.blocked.left || body.blocked.right || this.stateRemainingMs === 0) this.recover();
@@ -60,7 +59,10 @@ export class SecurityDrone extends EnemyActor {
     for (let x = 45; x < length; x += 45) this.telegraph.fillStyle(0xffffff, 0.95).fillTriangle(this.sprite.x + this.direction * x, this.sprite.y - 7, this.sprite.x + this.direction * (x + 12), this.sprite.y, this.sprite.x + this.direction * x, this.sprite.y + 7);
     this.telegraph.lineStyle(4, 0xffffff, 1).strokeCircle(this.sprite.x, this.sprite.y, 10 + progress * 8);
   }
-  override disable(): boolean { const result = super.disable(); if (result) { this.state = 'disabled'; this.sprite.setVelocity(0); this.telegraph.clear().setVisible(false); audioService.play('enemyDisabled', 100, `enemy-disabled:${this.drone.id}`); } return result; }
-  override destroy(): void { if (!this.telegraph.active) return; this.telegraph.destroy(); super.destroy(); }
-  debug(): EnemyDebugState { const body = this.sprite.body as Phaser.Physics.Arcade.Body; return { id: this.drone.id, kind: this.drone.kind, state: this.state, active: !this.disabled, dangerous: !this.paused && this.visibleToCamera && (this.state === 'patrol' || this.state === 'charge'), x: this.sprite.x, y: this.sprite.y, bodyX: body.x, bodyY: body.y, velocityX: body.velocity.x, direction: this.direction, stateRemainingMs: this.stateRemainingMs, detected: this.detected, lineOfSight: this.lineOfSight, visibleToCamera: this.visibleToCamera }; }
+  override get attacking(): boolean { return this.contactDangerous && this.state === 'charge'; }
+  override onCameraSleep(): void { super.onCameraSleep(); this.telegraph.setVisible(false); }
+  override setPaused(value: boolean): void { super.setPaused(value); if (value) this.telegraph.setVisible(false); }
+  override disable(): boolean { const result = super.disable(); if (result) { this.state = 'disabled'; this.sprite.setVelocity(0); this.telegraph.clear().setVisible(false); } return result; }
+  override destroy(): void { if (this.destroyed) return; if (this.telegraph.active) this.telegraph.destroy(); super.destroy(); }
+  debug(): EnemyDebugState { const body = this.sprite.body as Phaser.Physics.Arcade.Body; return { id: this.drone.id, kind: this.drone.kind, state: this.state, active: this.active, dangerous: this.contactDangerous, contactDangerous: this.contactDangerous, attacking: this.attacking, canBeDisabled: this.canBeDisabled, cameraActive: this.cameraActive, x: this.sprite.x, y: this.sprite.y, bodyX: body.x, bodyY: body.y, velocityX: body.velocity.x, direction: this.direction, stateRemainingMs: this.stateRemainingMs, detected: this.detected, lineOfSight: this.lineOfSight, visibleToCamera: this.cameraActive, visualBounds: { x: this.sprite.x - this.sprite.displayWidth / 2, y: this.sprite.y - this.sprite.displayHeight / 2, width: this.sprite.displayWidth, height: this.sprite.displayHeight }, bodyBounds: { x: body.x, y: body.y, width: body.width, height: body.height } }; }
 }

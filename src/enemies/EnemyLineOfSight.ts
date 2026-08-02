@@ -1,6 +1,8 @@
 import type { EnemyBlocker } from './EnemyTypes';
 
 interface Point { readonly x: number; readonly y: number }
+const finitePoint = (point: Point): boolean => Number.isFinite(point.x) && Number.isFinite(point.y);
+const finiteBlocker = (blocker: EnemyBlocker): boolean => Number.isFinite(blocker.x) && Number.isFinite(blocker.y) && Number.isFinite(blocker.width) && Number.isFinite(blocker.height) && blocker.width >= 0 && blocker.height >= 0;
 const intersectsSegment = (origin: Point, target: Point, blocker: EnemyBlocker): boolean => {
   if (blocker.active === false) return false;
   const left = blocker.x - blocker.width / 2, right = blocker.x + blocker.width / 2;
@@ -15,8 +17,9 @@ const intersectsSegment = (origin: Point, target: Point, blocker: EnemyBlocker):
   }
   return near > 0.001 && near < 0.999;
 };
-export const hasEnemyLineOfSight = (origin: Point, target: Point, blockers: readonly EnemyBlocker[]): boolean => !blockers.some((blocker) => intersectsSegment(origin, target, blocker));
+export const hasEnemyLineOfSight = (origin: Point, target: Point, blockers: readonly EnemyBlocker[]): boolean => finitePoint(origin) && finitePoint(target) && blockers.every(finiteBlocker) && !blockers.some((blocker) => intersectsSegment(origin, target, blocker));
 export const distanceToFirstBlocker = (origin: Point, direction: -1 | 1, maximum: number, blockers: readonly EnemyBlocker[]): number => {
+  if (!finitePoint(origin) || !Number.isFinite(maximum) || maximum < 0 || blockers.some((blocker) => !finiteBlocker(blocker))) return 0;
   let result = maximum;
   for (const blocker of blockers) {
     if (blocker.active === false || origin.y < blocker.y - blocker.height / 2 || origin.y > blocker.y + blocker.height / 2) continue;

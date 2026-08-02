@@ -85,6 +85,7 @@ export class LevelScene extends Phaser.Scene {
       lastJumpKind: this.player?.jumpKind ?? null,
       dashEvents: this.dashEvents,
       enemies: this.enemies?.debug() ?? [],
+      enemyBlockers: this.enemies?.blockerDebug() ?? null,
     };
   }
 
@@ -186,7 +187,7 @@ export class LevelScene extends Phaser.Scene {
       this.session.start();
       this.physics.world.resume();
       this.player.unlock();
-      this.enemies.resume();
+      this.enemies.onAttemptStart();
     });
     if (import.meta.env.VITE_E2E) {
       this.events.on('e2e:kill', this.die, this);
@@ -320,7 +321,7 @@ export class LevelScene extends Phaser.Scene {
   ): void {
     if (this.dead || this.complete) return;
     this.dead = true;
-    this.enemies.pause();
+    this.enemies.onPlayerDeath();
     this.closure = 'died';
     this.session.recordDeath(details.cause, details.sourceId);
     this.analytics.death(this.levelIndex, details.cause, details.sourceId);
