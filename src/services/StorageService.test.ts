@@ -12,6 +12,16 @@ class MemoryStorage {
   }
 }
 describe('StorageService', () => {
+  it('migrates v9 records to v10 and separates affected competitive rulesets', () => {
+    const store = new MemoryStorage();
+    store.values.set('one-more-floor.save.v9', JSON.stringify({ version: 9, unlockedFloor: 3, floors: { '1': { completed: true, bestTimeMs: 25000, fewestDeaths: 0, rank: 'A' }, '2': { completed: true, bestTimeMs: 31000, fewestDeaths: 2, rank: 'B' } } }));
+    const data = new StorageService(store).load();
+    expect(data.version).toBe(10);
+    expect(data.unlockedFloor).toBe(3);
+    expect(data.floors['1']?.bestTimeMs).toBe(25000);
+    expect(data.floors['2']?.bestTimeMs).toBeNull();
+    expect(data.floors['2']?.previousRuleset).toMatchObject({ rulesetVersion: 1, bestTimeMs: 31000, fewestDeaths: 2, rank: 'B' });
+  });
   it('migrates v8 to v9 and forces layout 2 exactly once', () => {
     const store = new MemoryStorage();
     store.values.set(
@@ -43,7 +53,7 @@ describe('StorageService', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data).toMatchObject({ version: 9, unlockedFloor: 4, settings: { mute: true } });
+    expect(data).toMatchObject({ version: 10, unlockedFloor: 4, settings: { mute: true } });
     expect(data.input.keyboard).toMatchObject({
       MOVE_LEFT: 'ArrowLeft',
       MOVE_RIGHT: 'ArrowRight',
@@ -92,7 +102,7 @@ describe('StorageService', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.version).toBe(9);
+    expect(data.version).toBe(10);
     expect(data.unlockedFloor).toBe(3);
     expect(data.floors['1']?.bestTimeMs).toBe(900);
     expect(data.input.keyboard.JUMP).toBe('Space');
@@ -104,7 +114,7 @@ describe('StorageService', () => {
     const store = new MemoryStorage();
     expect(new StorageService(store).load().unlockedFloor).toBe(1);
     store.values.set('one-more-floor.save.v3', '{');
-    expect(new StorageService(store).load().version).toBe(9);
+    expect(new StorageService(store).load().version).toBe(10);
   });
   it('does not write during a valid read and writes completion exactly once', () => {
     const store = new MemoryStorage();
@@ -156,7 +166,7 @@ describe('StorageService', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.version).toBe(9);
+    expect(data.version).toBe(10);
     expect(data.settings.showGhost).toBe(true);
     expect(data.unlockedFloor).toBe(2);
     expect(data.settings.reduceFlashes).toBe(false);
@@ -219,7 +229,7 @@ describe('tower persistence v7', () => {
       }),
     );
     const data = new StorageService(store).load();
-    expect(data.version).toBe(9);
+    expect(data.version).toBe(10);
     expect(data.unlockedFloor).toBe(4);
     expect(data.floors['1']?.bestTimeMs).toBe(1000);
     expect(data.tower.bestTimeMs).toBeNull();

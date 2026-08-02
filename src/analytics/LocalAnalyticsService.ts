@@ -12,6 +12,7 @@ const CAUSES: readonly DeathCause[] = [
   'fall',
   'collapse',
   'crush',
+  'enemy',
   'unknown',
 ];
 export interface Aggregate {
@@ -31,6 +32,8 @@ export interface FloorAnalytics {
   restarts: number;
   abandons: number;
   deaths: number;
+  enemiesDisabled: number;
+  disabledEnemySources: Record<string, number>;
   deathCauses: Partial<Record<DeathCause, number>>;
   deathSources: Record<string, number>;
   completionTimes: number[];
@@ -77,6 +80,8 @@ const floorDefault = (): FloorAnalytics => ({
   restarts: 0,
   abandons: 0,
   deaths: 0,
+  enemiesDisabled: 0,
+  disabledEnemySources: {},
   deathCauses: {},
   deathSources: {},
   completionTimes: [],
@@ -130,6 +135,13 @@ export class LocalAnalyticsService {
         if (entries.length > 64)
           delete floor.deathSources[entries.sort((a, b) => a[1] - b[1])[0]![0]];
       }
+    });
+  }
+  enemyDisabled(levelIndex: number, sourceId: string): void {
+    if (!id(sourceId)) return;
+    this.mutate(levelIndex, (floor) => {
+      floor.enemiesDisabled += 1;
+      floor.disabledEnemySources[sourceId] = (floor.disabledEnemySources[sourceId] ?? 0) + 1;
     });
   }
   split(levelIndex: number, splitId: string, timeMs: number): void {
@@ -251,6 +263,7 @@ export const validateAnalytics = (raw: unknown): AnalyticsData => {
         'restarts',
         'abandons',
         'deaths',
+        'enemiesDisabled',
       ] as const)
         target[name] =
           Number.isSafeInteger(candidate[name]) && candidate[name]! >= 0 ? candidate[name]! : 0;
@@ -272,6 +285,10 @@ export const validateAnalytics = (raw: unknown): AnalyticsData => {
         ))
           if (id(sourceId) && Number.isSafeInteger(count) && (count as number) >= 0)
             target.deathSources[sourceId] = count as number;
+      if (candidate.disabledEnemySources && typeof candidate.disabledEnemySources === 'object')
+        for (const [sourceId, count] of Object.entries(candidate.disabledEnemySources).slice(0, MAX_SOURCES))
+          if (id(sourceId) && Number.isSafeInteger(count) && (count as number) >= 0)
+            target.disabledEnemySources[sourceId] = count as number;
       if (candidate.anchors && typeof candidate.anchors === 'object')
         for (const [anchorId, count] of Object.entries(candidate.anchors).slice(0, MAX_SOURCES))
           if (id(anchorId) && Number.isSafeInteger(count) && (count as number) >= 0)

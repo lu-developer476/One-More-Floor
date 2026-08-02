@@ -33,6 +33,8 @@ const base = (
   accentColor,
   backgroundColor,
   spawn: { x: 90, y: 620 },
+  rulesetVersion: floor === 1 ? 1 : 2,
+  enemies: [],
   practiceAnchors: [
     {
       id: `floor${String(floor).padStart(2, '0')}-anchor-start`,
@@ -147,9 +149,12 @@ const maintenance = {
     { x: 210, y: 570, action: InputAction.JUMP, suffix: '  SALTAR' },
     { x: 360, y: 535, action: InputAction.JUMP, suffix: '  OTRA VEZ · DOBLE SALTO' },
     { x: 520, y: 570, action: InputAction.DASH, suffix: '  DASH' },
+    { x: 1800, y: 565, text: 'AUTÓMATA DE MANTENIMIENTO' },
+    { x: 1800, y: 590, action: InputAction.DASH, suffix: '  DASH PARA DESACTIVARLO · O SALTÁ POR ENCIMA' },
     { x: 1390, y: 580, text: '⚡ PARPADEO = ACTIVACIÓN' },
     { x: 2200, y: 570, text: 'DOBLE SALTO O SALTO + DASH' },
   ],
+  enemies: [{ id: 'floor02-bot-maintenance', kind: 'maintenance-bot' as const, x: 1900, y: 638, patrolMinX: 1810, patrolMaxX: 1990, speed: 76, facing: 1 as const }],
 };
 const ventilation = {
   ...base(3, 'VENTILACIÓN', 3300, 60000, 34000, 0xc7d5dc, 0x111820),
@@ -192,6 +197,10 @@ const ventilation = {
   tutorials: [
     { x: 1040, y: 270, text: 'SALTÁ CONTRA LA PARED' },
     { x: 1780, y: 570, text: 'LAS CORRIENTES MUESTRAN SU DIRECCIÓN' },
+  ],
+  enemies: [
+    { id: 'floor03-drone-intro', kind: 'security-drone' as const, x: 550, y: 510, patrolRadiusX: 70, patrolSpeed: 48, alertMs: 400, chargeMs: 300, recoverMs: 750, cooldownMs: 900, chargeSpeed: 340, detectionRangeX: 240, detectionRangeY: 120 },
+    { id: 'floor03-drone-current', kind: 'security-drone' as const, x: 2850, y: 440, patrolRadiusX: 65, patrolSpeed: 58, alertMs: 400, chargeMs: 280, recoverMs: 680, cooldownMs: 750, chargeSpeed: 360, detectionRangeX: 230, detectionRangeY: 120 },
   ],
 };
 const reactor = {
@@ -248,6 +257,10 @@ const reactor = {
     { x: 700, y: 600, text: 'CINTAS →  PLACAS FRÁGILES ≋' },
     { x: 2450, y: 410, text: 'LASER: TELEGRAPH ANTES DEL HAZ' },
   ],
+  enemies: [
+    { id: 'floor04-bot-reactor', kind: 'maintenance-bot' as const, x: 2350, y: 638, patrolMinX: 2250, patrolMaxX: 2450, speed: 90, facing: -1 as const },
+    { id: 'floor04-drone-reactor', kind: 'security-drone' as const, x: 850, y: 440, patrolRadiusX: 70, patrolSpeed: 55, alertMs: 400, chargeMs: 300, recoverMs: 750, cooldownMs: 850, chargeSpeed: 350, detectionRangeX: 230, detectionRangeY: 120 },
+  ],
 };
 const collapse = {
   ...base(5, 'COLAPSO', 3900, 56000, 35000, 0xff405c, 0x21060b),
@@ -300,6 +313,11 @@ const collapse = {
   fans: [{ x: 3000, y: 560, width: 300, height: 180, forceX: 350, forceY: -550 }],
   conveyors: [{ x: 500, y: 655, width: 300, height: 28, speed: 180 }],
   tutorials: [{ x: 120, y: 560, text: 'CORRÉ. TODO SE DERRUMBA.' }],
+  enemies: [
+    { id: 'floor05-bot-collapse', kind: 'maintenance-bot' as const, x: 2350, y: 638, patrolMinX: 2260, patrolMaxX: 2470, speed: 102, facing: 1 as const },
+    { id: 'floor05-drone-walls', kind: 'security-drone' as const, x: 1900, y: 450, patrolRadiusX: 65, patrolSpeed: 62, alertMs: 380, chargeMs: 300, recoverMs: 700, cooldownMs: 760, chargeSpeed: 370, detectionRangeX: 220, detectionRangeY: 115 },
+    { id: 'floor05-drone-final', kind: 'security-drone' as const, x: 3050, y: 330, patrolRadiusX: 60, patrolSpeed: 66, alertMs: 360, chargeMs: 280, recoverMs: 680, cooldownMs: 720, chargeSpeed: 380, detectionRangeX: 220, detectionRangeY: 115 },
+  ],
 };
 export const LEVELS: readonly LevelDefinition[] = [
   evacuation,

@@ -25,6 +25,7 @@ export type DeathCause =
   | 'fall'
   | 'collapse'
   | 'crush'
+  | 'enemy'
   | 'unknown';
 export interface DeathEvent {
   readonly cause: DeathCause;

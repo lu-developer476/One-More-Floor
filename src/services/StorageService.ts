@@ -7,6 +7,8 @@ import { validateInputSettings } from '../input/InputValidation';
 import { LEVELS } from '../config/levelConfig';
 import { calculateBestTheoretical } from '../systems/SplitComparisons';
 export interface FloorRecord {
+  rulesetVersion: number;
+  previousRuleset: { rulesetVersion: number; bestTimeMs: number | null; fewestDeaths: number | null; rank: Rank | null } | null;
   completed: boolean;
   bestTimeMs: number | null;
   fewestDeaths: number | null;
@@ -39,7 +41,7 @@ export interface Settings {
   particleIntensity: 'normal' | 'reduced' | 'off';
 }
 export interface SaveData {
-  version: 9;
+  version: 10;
   unlockedFloor: number;
   floors: Record<string, FloorRecord>;
   settings: Settings;
@@ -81,9 +83,10 @@ export interface TowerCompletionOutcome {
   improvedIndividualFloors: readonly number[];
 }
 type Store = Pick<Storage, 'getItem' | 'setItem'>;
-export const SAVE_KEY = 'one-more-floor.save.v9';
+export const SAVE_KEY = 'one-more-floor.save.v10';
 const KEY = SAVE_KEY;
 const OLD_KEYS = [
+  'one-more-floor.save.v9',
   'one-more-floor.save.v8',
   'one-more-floor.save.v7',
   'one-more-floor.save.v6',
@@ -106,7 +109,7 @@ const defaultSettings = (): Settings => ({
   particleIntensity: 'normal',
 });
 const defaults = (): SaveData => ({
-  version: 9,
+  version: 10,
   unlockedFloor: 1,
   floors: {},
   settings: defaultSettings(),
@@ -237,6 +240,8 @@ export class StorageService {
           improvedSegments.push(id);
         }
     data.floors[key] = {
+      rulesetVersion: LEVELS[floor - 1]?.rulesetVersion ?? 1,
+      previousRuleset: old?.previousRuleset ?? null,
       completed: policy.progress || old?.completed === true,
       bestTimeMs: newBestTime ? safeTime : (old?.bestTimeMs ?? null),
       fewestDeaths: policy.rank
@@ -465,6 +470,12 @@ export const validate = (raw: Record<string, unknown>): SaveData => {
         continue;
       const record = value as Record<string, unknown>;
       result.floors[key] = {
+        rulesetVersion: LEVELS[floor - 1]?.rulesetVersion ?? 1,
+        previousRuleset: (() => {
+          if (!record.previousRuleset || typeof record.previousRuleset !== 'object') return null;
+          const previous = record.previousRuleset as Record<string, unknown>;
+          return { rulesetVersion: finite(previous.rulesetVersion, 1) ?? 1, bestTimeMs: finite(previous.bestTimeMs, 1), fewestDeaths: finite(previous.fewestDeaths, 0), rank: validRank(previous.rank) };
+        })(),
         completed: record.completed === true,
         bestTimeMs: finite(record.bestTimeMs, 1),
         fewestDeaths: finite(record.fewestDeaths, 0),
@@ -473,6 +484,12 @@ export const validate = (raw: Record<string, unknown>): SaveData => {
         bestRunSplits: validTimes(record.bestRunSplits),
         bestSegments: validTimes(record.bestSegments),
       };
+      const oldRuleset = finite(record.rulesetVersion, 1) ?? 1;
+      if (floor > 1 && oldRuleset < 2 && !result.floors[key]!.previousRuleset) {
+        const current = result.floors[key]!;
+        current.previousRuleset = { rulesetVersion: oldRuleset, bestTimeMs: current.bestTimeMs, fewestDeaths: current.fewestDeaths, rank: current.rank };
+        current.bestTimeMs = null; current.fewestDeaths = null; current.rank = null; current.bestGhost = null; current.bestRunSplits = {}; current.bestSegments = {};
+      }
     }
   return reconcileFloorProgress(result);
 };
@@ -548,6 +565,8 @@ const migrateLegacy = (old: Record<string, unknown> | null): SaveData => {
   const deaths = finite(old.fewestDeaths, 0);
   if (time !== null || deaths !== null)
     data.floors['1'] = {
+      rulesetVersion: 1,
+      previousRuleset: null,
       completed: true,
       bestTimeMs: time,
       fewestDeaths: deaths,

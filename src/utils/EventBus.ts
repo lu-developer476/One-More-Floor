@@ -4,6 +4,7 @@ export const eventBus = new Phaser.Events.EventEmitter();
 
 export const Events = {
   HUD: 'hud:update',
+  TOAST: 'ui:toast',
   COMPLETE: 'level:complete',
   SETTINGS_CHANGED: 'settings:changed',
   PLAYER_JUMP: 'player:jump',
