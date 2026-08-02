@@ -13,6 +13,8 @@ if (pkg.version !== lock.version || pkg.version !== lock.packages?.['']?.version
 const config = readFileSync('src/config/gameConfig.ts', 'utf8');
 const menu = readFileSync('src/scenes/MenuScene.ts', 'utf8');
 if (!config.includes('version: __APP_VERSION__')) fail('gameConfig no usa __APP_VERSION__');
+const main = readFileSync('src/main.ts', 'utf8');
+for (const contract of ["`One More Floor v${__APP_VERSION__}`", "'data-app-version', __APP_VERSION__", "'data-save-schema', '11'", "'data-tower-ruleset', '2'"]) if (!main.includes(contract)) fail(`falta metadata ${contract}`);
 if (!menu.includes('__APP_VERSION__')) fail('MenuScene no usa __APP_VERSION__');
 const walk = (dir) =>
   readdirSync(dir).flatMap((name) => {
@@ -24,7 +26,7 @@ for (const file of ['src', 'index.html', 'package.json', 'README.md']) {
   for (const name of commandTarget) {
     const path = name;
     if (/\.(test|spec)\.ts$/.test(path)) continue;
-    if (/v0\.9\.[0-2]/.test(readFileSync(path, 'utf8'))) fail(`versión visible antigua en ${path}`);
+    if (/v1\.2\.[012]/.test(readFileSync(path, 'utf8'))) fail(`versión visible antigua en ${path}`);
   }
 }
 if (!process.exitCode) console.log(`Versión central verificada: ${pkg.version}`);

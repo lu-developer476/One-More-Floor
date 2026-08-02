@@ -15,6 +15,7 @@ import { readUiAudit, type UiAuditSnapshot } from './ui/UiAudit';
 export interface E2EHarness {
   scene: () => string[];
   startFloor: (index: number) => void;
+  positionPlayer: (x: number, y: number) => void;
   killPlayer: () => void;
   completeFloor: () => void;
   save: () => ReturnType<StorageService['load']>;
@@ -64,6 +65,7 @@ export function installE2EHarness(game: Phaser.Game): void {
     scene: () => game.scene.getScenes(true).map((scene) => scene.scene.key),
     startFloor: (index) =>
       game.scene.start('Level', { levelIndex: index, allowE2ECompetitive: true }),
+    positionPlayer: (x, y) => (game.scene.getScene('Level') as LevelScene).positionPlayerForE2E(x, y),
     killPlayer: () => game.scene.getScene('Level').events.emit('e2e:kill'),
     completeFloor: () => game.scene.getScene('Level').events.emit('e2e:complete'),
     save: () => new StorageService().load(),

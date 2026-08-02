@@ -1,3 +1,27 @@
+## 1.2.3
+
+### Added
+
+- Verificación completa de release.
+- Manifiesto textual de versión.
+- Estado accesible compartido.
+- Workflow manual de smoke post-deploy.
+- Verificación de lockfile.
+- Verificación de build de producción.
+
+### Changed
+
+- CI separa claramente validación estática y aceptación de navegador.
+- README distingue desarrollo, release y deploy.
+- E2E utiliza navegación semántica y fixture común de errores.
+
+### Fixed
+
+- Un deploy exitoso ya no se confunde con aceptación funcional.
+- Tests agregados pero no ejecutados ya no pueden reportarse como aprobados.
+- El smoke desplegado deja de usar secuencias de teclas sin aserciones.
+- Enemy E2E cubre contactos, dash, drones, paredes y puertas.
+
 ## 1.2.2
 
 ### Fixed

@@ -1,8 +1,8 @@
-# One More Floor v1.2.2
+# One More Floor v1.2.3
 
 Plataformas de precisión procedural en Phaser: cinco pisos, práctica, ghosts, splits y Tower Run competitiva o asistida. Todo el progreso permanece local; no se envía a un servidor.
 
-La versión 1.2.2 explicita el peligro de contacto, centraliza los efectos de desactivación y hace seguros pausa, countdown, cámara y destrucción. No incorpora contenido ni cambia el ruleset.
+La versión 1.2.3 agrega una puerta reproducible de calidad, un manifiesto textual y estados accesibles compartidos. No incorpora contenido ni cambia el gameplay o el ruleset.
 
 ## Controles predeterminados
 
@@ -27,15 +27,31 @@ Ajustes permite copiar e importar una copia JSON mediante el portapapeles, borra
 
 ## Desarrollo
 
+Se requiere Node 22.12.0 (ver `.nvmrc`) y npm 10 o superior. `validate` cubre sólo la verificación estática: no representa aceptación de navegador.
+
+### Durante desarrollo
+
 ```sh
 npm ci
 npm run validate
-npm run test:e2e
-npm run test:e2e:smoke
 ```
 
-Tras desplegar:
+### Antes de abrir PR
+
+```sh
+npm run verify:static
+```
+
+### Antes de release
+
+```sh
+npm run verify:release
+```
+
+### Después del deploy
 
 ```sh
 OMF_BASE_URL=https://one-more-floor.onrender.com npm run test:deployed
 ```
+
+Los checks requeridos y la protección manual de `main` están documentados en `docs/required-checks.md`.

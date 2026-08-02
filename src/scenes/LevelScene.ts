@@ -4,9 +4,8 @@ import { LevelManager } from '../systems/LevelManager';
 import { LevelFactory, type BuiltLevel } from '../systems/LevelFactory';
 import { CollapseSystem } from '../systems/CollapseSystem';
 import { EnvironmentSystem } from '../systems/EnvironmentSystem';
-import { eventBus, Events } from '../utils/EventBus';
+import { announceStatus, eventBus, Events } from '../utils/EventBus';
 import type { LevelDefinition, LevelSceneData } from '../types/game';
-import { MOVEMENT } from '../config/movementConfig';
 import { StorageService, type SaveData, type Settings } from '../services/StorageService';
 import { TOTAL_FLOORS } from '../config/levelConfig';
 import { audioService } from '../services/AudioService';
@@ -33,7 +32,6 @@ export class LevelScene extends Phaser.Scene {
   private collapse!: CollapseSystem;
   private environment!: EnvironmentSystem;
   private enemies!: EnemySystem;
-  private debugText?: Phaser.GameObjects.Text;
   private dead = false;
   private complete = false;
   private paused = false;
@@ -89,6 +87,12 @@ export class LevelScene extends Phaser.Scene {
     };
   }
 
+  positionPlayerForE2E(x: number, y: number): void {
+    if (!import.meta.env.VITE_E2E || !this.player) return;
+    this.player.setPosition(x, y);
+    this.player.setVelocity(0, 0);
+  }
+
   init(data: LevelSceneData): void {
     const levelIndex = data.levelIndex ?? 0;
     this.levelIndex = levelIndex;
@@ -116,6 +120,7 @@ export class LevelScene extends Phaser.Scene {
     this.jumpEvents = 0;
     this.dashEvents = 0;
     this.level = new LevelManager().get(this.levelIndex);
+    announceStatus({ scene: 'Level', message: `Piso ${this.level.floor}, ${this.level.name[0]}${this.level.name.slice(1).toLowerCase()}. Partida iniciada. Cuenta regresiva.`, priority: 'polite' });
     this.physics.world.setBounds(0, 0, this.level.width, this.level.height);
     this.cameras.main
       .setBounds(0, 0, this.level.width, this.level.height)
@@ -188,13 +193,13 @@ export class LevelScene extends Phaser.Scene {
       this.physics.world.resume();
       this.player.unlock();
       this.enemies.onAttemptStart();
+      announceStatus({ scene: 'Level', message: `Piso ${this.level.floor}. Cuenta regresiva finalizada.`, priority: 'polite' });
     });
     if (import.meta.env.VITE_E2E) {
       this.events.on('e2e:kill', this.die, this);
       this.events.on('e2e:complete', this.e2eComplete, this);
     }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
-    if (new URLSearchParams(window.location.search).has('debug')) this.createDebugPanel();
   }
 
   private bindPhysics(): void {
@@ -282,7 +287,6 @@ export class LevelScene extends Phaser.Scene {
           this.player.y > this.level.height + 50 ? 'world-bottom' : `${this.level.id}-collapse`,
       });
     this.emitHud(false);
-    this.updateDebugPanel();
   }
 
   private emitHud(paused: boolean): void {
@@ -321,6 +325,7 @@ export class LevelScene extends Phaser.Scene {
   ): void {
     if (this.dead || this.complete) return;
     this.dead = true;
+    announceStatus({ scene: 'Level', message: 'Moriste. El piso se reiniciará.', priority: 'assertive' });
     this.enemies.onPlayerDeath();
     this.closure = 'died';
     this.session.recordDeath(details.cause, details.sourceId);
@@ -495,40 +500,6 @@ export class LevelScene extends Phaser.Scene {
         onComplete: () => ghost.destroy(),
       });
     }
-  }
-
-  private createDebugPanel(): void {
-    this.debugText = this.add
-      .text(8, 62, '', {
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        color: '#ffffff',
-        backgroundColor: '#000000cc',
-        padding: { x: 6, y: 5 },
-      })
-      .setScrollFactor(0)
-      .setDepth(200);
-  }
-
-  private updateDebugPanel(): void {
-    if (!this.debugText) return;
-    const body = this.player.body as Phaser.Physics.Arcade.Body;
-    const objects = this.children.list.filter((child) => child.active).length;
-    const wall = body.blocked.left || body.blocked.right;
-    this.debugText.setText([
-      `FPS ${this.game.loop.actualFps.toFixed(1)}  OBJECTS ~${objects}`,
-      `FLOOR ${this.level.floor}  TIME ${(this.collapse.timer.remainingMs / 1000).toFixed(2)}`,
-      `${this.player.states.state}  POS ${this.player.x.toFixed(1)},${this.player.y.toFixed(1)}`,
-      `VEL ${body.velocity.x.toFixed(1)},${body.velocity.y.toFixed(1)}`,
-      `INPUT L=${this.inputManager.settings.keyboard.MOVE_LEFT} R=${this.inputManager.settings.keyboard.MOVE_RIGHT}`,
-      `INPUT JUMP=${this.inputManager.settings.keyboard.JUMP} DASH=${this.inputManager.settings.keyboard.DASH} PAUSE=${this.inputManager.settings.keyboard.PAUSE}`,
-      `JUMP speed=${MOVEMENT.jumpSpeed} cut=${MOVEMENT.jumpCutMultiplier} queued=${this.player.jumpQueued}`,
-      `DASH duration=${MOVEMENT.dashDurationMs} speed=${MOVEMENT.dashSpeed} remaining=${this.player.dashRemainingMs.toFixed(0)}`,
-      `GROUND ${body.blocked.down || body.touching.down} WALL ${wall} COYOTE ${this.player.coyoteRemainingMs.toFixed(0)}`,
-      `DASHING ${this.player.isDashing} AVAILABLE ${this.player.dashAvailable} STATE ${this.player.states.state}`,
-      `ENEMIES ${this.enemies.count} ACTIVE ${this.enemies.activeCount} DISABLED ${this.enemies.count - this.enemies.activeCount}`,
-      ...this.enemies.debug().slice(0, 3).map((enemy) => `${enemy.id} ${enemy.state} ${enemy.x.toFixed(0)},${enemy.y.toFixed(0)} dir=${enemy.direction} t=${enemy.stateRemainingMs.toFixed(0)}`),
-    ]);
   }
 
   private shutdown(): void {

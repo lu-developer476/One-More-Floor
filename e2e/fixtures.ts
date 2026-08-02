@@ -1,4 +1,5 @@
 import { expect, test as base } from '@playwright/test';
+import { installBrowserErrorCollector } from './browserErrors';
 export const STORAGE_KEYS = [
   'one-more-floor.save.v11',
   'one-more-floor.save.v10',
@@ -12,13 +13,10 @@ export const STORAGE_KEYS = [
 export const test = base.extend<{ browserErrors: string[] }>({
   browserErrors: [
     async ({ page }, use) => {
+      const errors = await installBrowserErrorCollector(page);
       const browserErrors: string[] = [];
-      page.on('console', (message) => {
-        if (message.type() === 'error') browserErrors.push(message.text());
-      });
-      page.on('pageerror', (error) => browserErrors.push(error.message));
       await use(browserErrors);
-      expect(browserErrors).toEqual([]);
+      expect([...browserErrors, ...errors.all()]).toEqual([]);
     },
     { auto: true },
   ],
