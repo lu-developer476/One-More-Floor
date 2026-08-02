@@ -8,6 +8,7 @@ import { StorageService } from '../services/StorageService';
 import type { RunContext } from '../runs/AttemptSession';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { TowerRunCoordinator } from '../runs/TowerRunCoordinator';
+import { announceStatus } from '../utils/EventBus';
 
 const commonOptions = ['CONTINUAR', 'REINICIAR PISO', 'AJUSTES', 'CONTROLES'] as const;
 export class PauseScene extends Phaser.Scene {
@@ -69,6 +70,7 @@ export class PauseScene extends Phaser.Scene {
     this.items.forEach((item, itemIndex) =>
       item.setColor(itemIndex === index ? '#ffffff' : '#91a6b6'),
     );
+    announceStatus({ scene: 'Pause', message: `Juego en pausa. ${this.options[index]} seleccionado.`, priority: 'polite' });
   }
   private confirm(): void {
     if (this.selected === 0) this.resume();

@@ -21,7 +21,7 @@ import { CreditsScene } from '../scenes/CreditsScene';
 export const GAME_WIDTH = 960;
 export const GAME_HEIGHT = 540;
 
-const debugPhysics = new URLSearchParams(window.location.search).has('debug');
+const debugPhysics = import.meta.env.DEV && new URLSearchParams(window.location.search).has('debug');
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,

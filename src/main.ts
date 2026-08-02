@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { gameConfig } from './config/gameConfig';
 import { installE2EHarness } from './e2eHarness';
 import { StorageService } from './services/StorageService';
+import { GameAccessibilityBridge } from './accessibility/GameAccessibilityBridge';
 import './style.css';
 const query = new URLSearchParams(window.location.search);
 if (query.has('reset-controls')) {
@@ -16,6 +17,8 @@ if (query.has('reset-controls')) {
   );
 }
 let game: Phaser.Game;
+const root = document.getElementById('game');
+const accessibility = root ? new GameAccessibilityBridge(root) : undefined;
 try {
   game = new Phaser.Game(gameConfig);
   if (!game.canvas) throw new Error('Canvas unavailable');
@@ -35,9 +38,8 @@ const focusCanvas = (): void => {
 };
 requestAnimationFrame(focusCanvas);
 game?.canvas?.addEventListener('pointerdown', focusCanvas);
-document
-  .getElementById('game')
-  ?.setAttribute(
-    'aria-label',
-    `One More Floor v${__APP_VERSION__}, videojuego de plataformas de precisión`,
-  );
+root?.setAttribute('aria-label', `One More Floor v${__APP_VERSION__}`);
+root?.setAttribute('data-app-version', __APP_VERSION__);
+root?.setAttribute('data-save-schema', '11');
+root?.setAttribute('data-tower-ruleset', '2');
+window.addEventListener('pagehide', () => accessibility?.destroy(), { once: true });

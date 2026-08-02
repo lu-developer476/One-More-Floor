@@ -12,6 +12,7 @@ import { audioService } from '../services/AudioService';
 import { ScreenShell, UiTypography } from '../ui/UiKit';
 import { UI_TOKENS } from '../ui/UiTokens';
 import { publishUiAudit } from '../ui/UiAudit';
+import { announceStatus } from '../utils/EventBus';
 
 type MenuButton = ReturnType<ScreenShell['button']>;
 export class MenuScene extends Phaser.Scene {
@@ -63,7 +64,7 @@ export class MenuScene extends Phaser.Scene {
   private addButton(label: string, x: number, y: number, width: number, primary = false, destructive = false): void {
     const index = this.actions.indexOf(label); this.buttons[index] = this.shell.button(label.toLowerCase().replaceAll(' ', '-'), label, x, y, width, () => { this.select(index); this.confirm(); }, { primary, destructive });
   }
-  private select(index: number): void { if (index < 0) return; this.selected = index; this.buttons.forEach((button, i) => button?.setFocused(i === index)); this.shell.focus(this.actions[index]!.toLowerCase().replaceAll(' ', '-')); publishUiAudit(this.shell.audit); audioService.play('menuMove'); }
+  private select(index: number): void { if (index < 0) return; this.selected = index; this.buttons.forEach((button, i) => button?.setFocused(i === index)); this.shell.focus(this.actions[index]!.toLowerCase().replaceAll(' ', '-')); publishUiAudit(this.shell.audit); announceStatus({ scene: 'Menu', message: `Menú principal. ${this.actions[index]} seleccionada.`, priority: 'polite' }); audioService.play('menuMove'); }
   private confirm(): void {
     const action = this.actions[this.selected];
     if (action === 'INICIAR TOWER RUN') this.start('TowerSetup');

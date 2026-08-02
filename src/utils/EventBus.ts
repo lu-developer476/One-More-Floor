@@ -25,4 +25,14 @@ export const Events = {
   RUN_MODE_CHANGED: 'run:mode-changed',
   GHOST_CHANGED: 'ghost:changed',
   ELIGIBILITY_CHANGED: 'run:eligibility-changed',
+  ACCESSIBLE_STATUS: 'accessibility:status',
 } as const;
+
+export interface AccessibleStatusEvent {
+  scene: string;
+  message: string;
+  priority: 'polite' | 'assertive';
+}
+export const announceStatus = (event: AccessibleStatusEvent): void => {
+  eventBus.emit(Events.ACCESSIBLE_STATUS, event);
+};

@@ -17,16 +17,18 @@ jobs:
       - run: npm ci
       - run: npm run check:text-only
       - run: npm run check:version
+      - run: npm run check:lockfile
       - run: npm run check:ui:static
       - run: npm run check:levels
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test
       - run: npm run build
-  e2e:
-    name: Browser tests
+      - run: npm run check:dist
+  browser:
+    name: Browser acceptance
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
